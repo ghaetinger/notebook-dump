@@ -14,11 +14,37 @@ macro bind(def, element)
     end
 end
 
+# ╔═╡ 09b1f960-48c8-4a68-876a-3bbb641ae190
+begin
+	using Pkg
+	Pkg.activate(temp=true)
+	Pkg.add("HypertextLiteral")
+	Pkg.add("PlutoUI")
+	Pkg.add("Colors")
+end
+
+# ╔═╡ 3511a009-7c66-426b-a117-b5fc937980bd
+Pkg.add(url="https://github.com/ghaetinger/Portinari.jl", rev="architecture-revision")
+
 # ╔═╡ 4b0f3910-b5ae-11ec-0f30-297917b31c5c
-using HypertextLiteral, PlutoUI
+using HypertextLiteral, PlutoUI, Colors
+
+# ╔═╡ 90edf48b-e30d-4683-a54e-a9419aa7d139
+using Portinari
 
 # ╔═╡ f5a69cd2-622f-4ce6-bd63-eea6ab04daf6
 @htl("""<button onclick="present()">Present</button>""")
+
+# ╔═╡ 694a3f66-344e-411b-b9c6-7dea2712b800
+@htl("""
+<script src="https://cdn.jsdelivr.net/npm/d3@6.2.0/dist/d3.min.js"></script>
+""")
+
+# ╔═╡ 649cb97c-dcd2-48d2-9921-423d6df71bdc
+x_ = collect(1:100);
+
+# ╔═╡ 75e8e152-fec4-4fb3-84ef-3d157f77e3c3
+y_ = rand(100);
 
 # ╔═╡ bcea4f64-4b72-4e22-98e8-612b35dd0150
 md"# D3 + Julia + Pluto = ❤️"
@@ -248,236 +274,348 @@ const selection = div.selectAll("text")
 # ╔═╡ d49858d1-8893-460a-acee-dee28fa6f9a4
 md"# Primitives/Descriptors 🚀"
 
+# ╔═╡ 112801d4-0394-4cfb-9060-b82866a42260
+md"## What does D3 provide? 🎁"
+
+# ╔═╡ 02a0e831-3c8a-4b06-b109-9b63afd437b4
+md"""
+* Lines, Bars, Area, Scatter/symbol charts have to be drawn either by **svg** components or rasterized **canvas**.
+* D3 provides us with functions used to organize data into these charts
+* D3 also gives us a way to interpolate data into scales (can be assigned to drawn axis as well)
+"""
+
+# ╔═╡ a576397b-3e4c-4de3-8249-12022d6f4f9f
+@htl("""
+<iframe src="https://d3js.org/" width="690" height="600"></iframe>
+""")
+
+# ╔═╡ 3f75edf0-6491-406e-b4c4-d841d843e654
+md"## Axis/Scales 📉"
+
+# ╔═╡ af811922-8166-42bd-83d1-56e48a114bcc
+@bind dom PlutoUI.combine() do Child
+md"""
+#### Domain:
+X: $(Child(:x, RangeSlider((0:100))))
+Y: $(Child(:y, RangeSlider((0:100))))
+"""
+end
+
+# ╔═╡ 690b909a-f6de-4526-bc07-91b1cbaeb267
+@htl("""<svg id="axis-svg" width="680" height="180"></svg>""")
+
+# ╔═╡ 3e9360a8-6a19-487d-ad2f-d412ed357619
+@htl("""
+<script>
+const x_scale = d3.scaleLinear()
+                  .domain($([first(dom.x), last(dom.x)]))
+                  .range([30, 650]);
+const x_axis = d3.axisBottom().scale(x_scale);
+
+const y_scale = d3.scaleLinear()
+                  .domain($([first(dom.y), last(dom.y)]))
+                  .range([30, 170]);
+const y_axis = d3.axisRight().scale(y_scale);
+
+const svg = d3.select("#axis-svg");
+svg.selectAll(".x").data([1]).join("g")
+   .transition().duration(100).attr("class", "x").call(x_axis);
+svg.selectAll(".y").data([1]).join("g")
+   .transition().duration(100).attr("class", "y").call(y_axis);
+</script>
+""")
+
+# ╔═╡ 7fa034a7-9b89-47c5-8351-8d6a6e98fc42
+md"## Line 📈"
+
+# ╔═╡ c8ec33e8-b1b0-4fac-b5c2-074cdb1ce2cc
+@bind l PlutoUI.combine() do Child
+md"""
+Number of points: $(Child(:sz, Slider((1:100), show_value=true)))
+"""
+end
+
+# ╔═╡ 2576a5df-d2d8-4cec-a028-da597d3380f2
+x = collect(1.0:l.sz);
+
+# ╔═╡ 6d740d46-83a8-424c-9901-a9c793b8b996
+y = sin.(x);
+
+# ╔═╡ bb401e11-09de-48a5-a35a-f2477eb703db
+data = [(x=x[i], y=y[i]) for i ∈ 1:l.sz]
+
+# ╔═╡ f30b7011-b8f0-4c30-b16b-783013e1f297
+@htl("""<svg id="line-svg" width="680" height="180"></svg>""")
+
+# ╔═╡ ee87bd18-367c-4d50-8376-c8e14b40d9b3
+@htl("""
+<script>
+const x_scale = d3.scaleLinear().domain($([extrema(x)...])).range([30, 650]);
+const x_axis = d3.axisBottom().scale(x_scale);
+const y_scale = d3.scaleLinear().domain($([extrema(y)...])).range([30, 170]);
+const y_axis = d3.axisRight().scale(y_scale);
+
+const svg = d3.select("#line-svg");
+svg.selectAll(".x").data([1]).join("g")
+   .transition().duration(100).attr("class", "x").call(x_axis);
+svg.selectAll(".y").data([1]).join("g")
+   .transition().duration(100).attr("class", "y").call(y_axis);
+
+const path = d3.line()
+               .x(d => x_scale(d.x)).y(d => y_scale(d.y)).curve(d3.curveBasis);
+svg.selectAll(".line").data([$data]).join("path").attr("class", "line")
+.transition().duration(100).attr("d", path)
+.attr("fill", "none").attr("stroke", "violet").attr("stroke-width", "2");
+</script>
+""")
+
+# ╔═╡ f2385292-a021-4482-9935-6cc1d0918556
+md"## Bar📊"
+
+# ╔═╡ d25943dc-6013-44eb-b3ed-8b4a21ec8177
+@bind word TextField(;default="Is this working?")
+
+# ╔═╡ 500da8fb-8a54-44f1-be8b-3659ddab61e2
+cmap = let
+	lword = lowercase.(word)
+	characters = lword |> unique
+	collect((c=string(c), n=length(filter(_c -> _c == c, lword))) for c ∈ characters)
+end
+
+# ╔═╡ 7742e8e7-ff63-47e1-85f5-09bc24c17dc1
+@htl("""<svg id="bar-svg" width="680" height="180"></svg>""")
+
+# ╔═╡ 3a7da857-e098-44d9-b7d8-f834ea7fc9e0
+@htl("""
+<script>
+const x_scale = d3.scaleBand().domain($((v -> v.c).(cmap))).range([30, 650]).padding(0.2);
+const x_axis = d3.axisBottom().scale(x_scale);
+const y_scale = d3.scaleLinear().domain($([extrema(vcat([0], (v -> v.n).(cmap)))...])).range([170, 30]);
+const y_axis = d3.axisRight().scale(y_scale);
+
+const svg = d3.select("#bar-svg");
+svg.selectAll(".x").data([1]).join("g")
+   .transition().duration(100).attr("class", "x").call(x_axis);
+svg.selectAll(".y").data([1]).join("g")
+   .transition().duration(100).attr("class", "y").call(y_axis);
+svg.selectAll(".bar").data($cmap).join("rect")
+  .attr("x", d => x_scale(d.c)).attr("y", d => y_scale(d.n))
+  .attr("width", x_scale.bandwidth()).attr("height", d => 200 - y_scale(d.n))
+  .attr("class", "bar").attr("fill", "green")
+</script>
+""")
+
 # ╔═╡ df3a9cc5-c962-47f4-be41-52ffbc15101b
 md"# How do we mix D3 with Pluto? 🍲"
+
+# ╔═╡ a51ef2f7-4b54-4dae-8e28-c3ccd8d96a8e
+md"## Importing D3"
+
+# ╔═╡ 7face994-929b-4b95-b2bb-e39f87c13107
+md"### Non-recommended method"
 
 # ╔═╡ 1f49de3f-06e2-41e9-a706-c43f5d0ff4cf
 @htl("""
 <script src="https://cdn.jsdelivr.net/npm/d3@6.2.0/dist/d3.min.js"></script>
 """)
 
+# ╔═╡ 42648fe7-2597-443c-9843-5cd284922f9e
+md"### Recommended (ES6)"
+
+# ╔═╡ 175e5cb5-06a2-4c91-9fb0-cb37205d8c56
+md"""
+Have a source code saved in a *js* file importing **D3**:
+```javascript
+import * as d3 from "https://cdn.skypack.dev/d3@7"; // or whatever version
+
+export { d3 };
+```
+
+Then you can import it using the `import_local_js` method located at [Fons's notebooks](https://fonsp-disorganised-mess.netlify.app/importing%20local%20js%20modules) (still to be made into a package)
+
+```julia
+@htl("<script> const { d3 } = include_local_js($path_to_src) </script>")
+```
+
+I do that inside of a Deno project in [Portinari.jl](https://github.com/ghaetinger/Portinari.jl).
+"""
+
 # ╔═╡ ade85e2d-7e06-416f-b38f-3e79538ea676
-md"# Sending data from Julia to D3? 🤔"
+md"## Sending data from Julia to D3? 🤔"
 
-# ╔═╡ 00000000-0000-0000-0000-000000000001
-PLUTO_PROJECT_TOML_CONTENTS = """
-[deps]
-HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-
-[compat]
-HypertextLiteral = "~0.9.3"
-PlutoUI = "~0.7.38"
+# ╔═╡ a56b34d9-f4c2-4ef6-99c3-873714f8ae1b
+md"""
+* Data has to be sent into Javascript by interpolation, as shown in the previous examples
+* To do that, the data has to be compatible (dictionaries, arrays, named tuples, ...)
+* For a faster experience we need to use `PublishToJS` ([Fons's notebooks](https://fonsp-disorganised-mess.netlify.app/importing%20local%20js%20modules)), which avoids reinterpolating data and serializing to JSON.
+* Works very nicely with PlutoUI's widgets!
 """
 
-# ╔═╡ 00000000-0000-0000-0000-000000000002
-PLUTO_MANIFEST_TOML_CONTENTS = """
-# This file is machine-generated - editing it directly is not advised
+# ╔═╡ 5786faeb-96b1-44f1-afc1-ebef1a91d23f
+@htl("""<svg id="color-svg" width="680" height="180"></svg>""")
 
-julia_version = "1.7.2"
-manifest_format = "2.0"
+# ╔═╡ 808e4d36-dbb3-4044-94af-c3948a8c128e
+@bind color ColorPicker()
 
-[[deps.AbstractPlutoDingetjes]]
-deps = ["Pkg"]
-git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
-uuid = "6e696c72-6542-2067-7265-42206c756150"
-version = "1.1.4"
+# ╔═╡ 79e9fe0d-473a-4e8a-8d5b-aa7628457d3d
+@htl("""
+<script>
+const x = $x_, y = $y_, data = x.map(function (d, i) {return {x: d, y: y[i]}});
+const x_scale = d3.scaleLinear().domain([1, 6]).range([30, 650]);
+const x_axis = d3.axisBottom().scale(x_scale);
+const y_scale = d3.scaleLinear().domain([0, 1]).range([30, 170]);
+const y_axis = d3.axisRight().scale(y_scale);
+const svg = d3.select("#color-svg");
+svg.selectAll(".x").data([1]).join("g")
+   .transition().duration(100).attr("class", "x").call(x_axis);
+svg.selectAll(".y").data([1]).join("g")
+   .transition().duration(100).attr("class", "y").call(y_axis);
+const path = d3.line()
+               .x(d => x_scale(d.x)).y(d => y_scale(d.y));
+svg.selectAll(".line").data([data]).join("path").attr("class", "line")
+.transition().duration(100).attr("d", path)
+.attr("fill", "none").attr("stroke", "#" + $(hex(color))).attr("stroke-width", "5");
+</script>
+""")
 
-[[deps.ArgTools]]
-uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+# ╔═╡ bcce393a-4cdf-4a84-ba5f-c560b784f6ba
+md"# Portinari.jl 🎨"
 
-[[deps.Artifacts]]
-uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+# ╔═╡ 1d48464c-70c1-4ca3-8695-010e6430149e
+md"## What it can do as of now? 🖼️"
 
-[[deps.Base64]]
-uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+# ╔═╡ ba60ae0f-fa74-487e-bbc2-10582b7e980c
+md"""
+* Render lines, areas and shapes in multiple contexts
+* Supports different transition durations, styles and attributes for each primitive
+* Can put multiple contexts together
+* Can retrieve events from each primitive and display it in Julia!
 
-[[deps.ColorTypes]]
-deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "024fe24d83e4a5bf5fc80501a314ce0d1aa35597"
-uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.11.0"
+##### Next version!
 
-[[deps.CompilerSupportLibraries_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+* Contexts are rescalables and restylizable, i.e. no need to redefine it
+* Faster computation (PublishToJS + Deno project)
 
-[[deps.Dates]]
-deps = ["Printf"]
-uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+##### Goals
 
-[[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
-uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
-
-[[deps.FixedPointNumbers]]
-deps = ["Statistics"]
-git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
-uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
-version = "0.8.4"
-
-[[deps.Hyperscript]]
-deps = ["Test"]
-git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
-uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
-version = "0.0.4"
-
-[[deps.HypertextLiteral]]
-git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
-uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.3"
-
-[[deps.IOCapture]]
-deps = ["Logging", "Random"]
-git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
-uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
-version = "0.2.2"
-
-[[deps.InteractiveUtils]]
-deps = ["Markdown"]
-uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-
-[[deps.JSON]]
-deps = ["Dates", "Mmap", "Parsers", "Unicode"]
-git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
-uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "0.21.3"
-
-[[deps.LibCURL]]
-deps = ["LibCURL_jll", "MozillaCACerts_jll"]
-uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
-
-[[deps.LibCURL_jll]]
-deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
-uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-
-[[deps.LibGit2]]
-deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
-uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
-
-[[deps.LibSSH2_jll]]
-deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
-uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-
-[[deps.Libdl]]
-uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-
-[[deps.LinearAlgebra]]
-deps = ["Libdl", "libblastrampoline_jll"]
-uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-
-[[deps.Logging]]
-uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
-
-[[deps.Markdown]]
-deps = ["Base64"]
-uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
-
-[[deps.MbedTLS_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-
-[[deps.Mmap]]
-uuid = "a63ad114-7e13-5084-954f-fe012c677804"
-
-[[deps.MozillaCACerts_jll]]
-uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-
-[[deps.NetworkOptions]]
-uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
-
-[[deps.OpenBLAS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
-uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-
-[[deps.Parsers]]
-deps = ["Dates"]
-git-tree-sha1 = "621f4f3b4977325b9128d5fae7a8b4829a0c2222"
-uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.2.4"
-
-[[deps.Pkg]]
-deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
-uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-
-[[deps.PlutoUI]]
-deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "670e559e5c8e191ded66fa9ea89c97f10376bb4c"
-uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.38"
-
-[[deps.Printf]]
-deps = ["Unicode"]
-uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-
-[[deps.REPL]]
-deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
-uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
-
-[[deps.Random]]
-deps = ["SHA", "Serialization"]
-uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[deps.Reexport]]
-git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
-uuid = "189a3867-3050-52da-a836-e630ba90ab69"
-version = "1.2.2"
-
-[[deps.SHA]]
-uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
-
-[[deps.Serialization]]
-uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-
-[[deps.Sockets]]
-uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
-
-[[deps.SparseArrays]]
-deps = ["LinearAlgebra", "Random"]
-uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-
-[[deps.Statistics]]
-deps = ["LinearAlgebra", "SparseArrays"]
-uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-
-[[deps.TOML]]
-deps = ["Dates"]
-uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-
-[[deps.Tar]]
-deps = ["ArgTools", "SHA"]
-uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
-
-[[deps.Test]]
-deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
-uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[[deps.UUIDs]]
-deps = ["Random", "SHA"]
-uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
-
-[[deps.Unicode]]
-uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
-
-[[deps.Zlib_jll]]
-deps = ["Libdl"]
-uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
-
-[[deps.libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
-uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-
-[[deps.nghttp2_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-
-[[deps.p7zip_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+* Animation support
+* Style change in event support
+* Independent Ids
+* Better "transform" support
+* Modifier support (zoom/pan, ...)
+* Different primimtives and Axis layouts
 """
+
+# ╔═╡ 4e9a6bc5-c021-49f2-8f69-366fde7f6c44
+md"## Example"
+
+# ╔═╡ a45814b3-ae75-4061-850a-a274b5fc76b9
+nsz_ui = @bind nsz Slider(1:100; show_value=true)
+
+# ╔═╡ be728fdd-18b2-44b8-9aad-ad8fac02621f
+nx = collect(1:nsz);
+
+# ╔═╡ 0380c453-340d-4783-8642-a42ba95be14f
+ny = rand(nsz);
+
+# ╔═╡ 61a167af-6718-45d3-ad9c-7e72e863fc48
+@bind asdasd line = Line(nx, ny, "base-line";
+	attributes=D3Attr(style=(;fill="none", stroke="green", var"stroke-width"="3"))
+)
+
+# ╔═╡ 2bf0d9b9-e996-4a43-a657-918d0ff6b851
+md"## Example"
+
+# ╔═╡ d652c699-ced0-4bb4-bf9f-6c9321413e81
+nsz_ui
+
+# ╔═╡ 2a0f74b7-90fb-4b04-aa5b-80a5df406497
+val = rand(nsz) .* 500
+
+# ╔═╡ 75dfbbe4-9aac-4fbe-87e5-18ddbd64d6db
+shapes = Shape(nx, ny, val, "base-shapes";
+	attributes=D3Attr(style=(;fill="rgba(255, 0, 0, 0.3)"))
+)
+
+# ╔═╡ 2c09d054-dc8f-4385-ab46-8e7aeb6503e6
+md"## Example"
+
+# ╔═╡ 438e636a-ebb2-4604-b9b1-902f9225232b
+nsz_ui
+
+# ╔═╡ 928da38f-bee1-4daf-832d-117d8c210aef
+together = Context(
+	(;domain=([extrema(nx)...]), range=[0, 630]),
+	(;domain=([extrema(ny)...]), range=[0, 300]),
+	[line, shapes],
+	"together"
+)
+
+# ╔═╡ fa48ed7b-61ae-49bc-bb94-fbdb698963b5
+md"## Example"
+
+# ╔═╡ 77c734e9-f0af-4bf3-8aa1-7cb41ca7b3e9
+nsz_ui
+
+# ╔═╡ 68767212-aeb2-4d9a-9f7b-a64128304c71
+together_rev = Context(
+	(;domain=([extrema(nx)...]), range=[0, 630]),
+	(;domain=(reverse([extrema(ny)...])), range=[0, 300]),
+	[line, shapes],
+	"together"
+)
+
+# ╔═╡ c5ca41e7-2b70-4455-a520-ac132d5cbc1b
+md"## Example - Result"
+
+# ╔═╡ 4bcb1a7c-5a19-4cdd-971f-74bb098578fe
+nsz_ui
+
+# ╔═╡ 77b3a347-c9b8-4e00-8bc2-e986ee629901
+merge = Context(
+	(;domain=[0, 0], range=[50, 600]),
+	(;domain=[0, 0], range=[50, 300]),
+	[
+		Scale(together, (0.0, 1.0), (0.0, 0.5), "together-scale"),
+		Scale(together_rev, (0.0, 1.0), (0.5, 0.8), "together-rev-scale"),
+	],
+	"merge"
+)
+
+# ╔═╡ 80122d16-969a-4995-bb83-263bb2c136cd
+md"## Interaction Example"
+
+# ╔═╡ da7d80e6-602c-41d6-834f-faa71a616dc8
+@bind marker_events markers = Shape(nx, ny, val .* 10, "squares";
+	attributes=D3Attr(
+		style=(;
+			fill="rgba(255, 15, 100, 0.45)",
+			stroke="white"
+		),
+		events=["mouseover", "click"]
+	),
+	shapeType=Portinari.Square
+)
+
+# ╔═╡ 15d6fea5-8b6d-4378-96d8-8ce5d68e070f
+ismissing(marker_events) || !haskey(marker_events, "mouseover") ? md"" : @htl("""
+<h4>Hover counter = $(marker_events["mouseover"]["count"])</h4>
+<h4>Hover X = $(marker_events["mouseover"]["data"]["x"])</h4>
+<h4>Hover Y = $(marker_events["mouseover"]["data"]["y"])</h4>
+<h4>Hover Value = $(marker_events["mouseover"]["data"]["size"])</h4>
+""")
 
 # ╔═╡ Cell order:
 # ╟─f5a69cd2-622f-4ce6-bd63-eea6ab04daf6
+# ╟─09b1f960-48c8-4a68-876a-3bbb641ae190
+# ╟─be728fdd-18b2-44b8-9aad-ad8fac02621f
+# ╟─0380c453-340d-4783-8642-a42ba95be14f
+# ╠═4b0f3910-b5ae-11ec-0f30-297917b31c5c
+# ╟─694a3f66-344e-411b-b9c6-7dea2712b800
+# ╟─649cb97c-dcd2-48d2-9921-423d6df71bdc
+# ╟─75e8e152-fec4-4fb3-84ef-3d157f77e3c3
+# ╟─6d740d46-83a8-424c-9901-a9c793b8b996
+# ╟─2576a5df-d2d8-4cec-a028-da597d3380f2
 # ╟─77644181-f1c7-430d-8a76-1bb294c2273b
 # ╟─787665d7-8196-4177-99de-841f09965b78
 # ╟─ae411421-6cb8-4508-bd24-b7827acd8799
@@ -506,9 +644,55 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─68cff724-b9b1-4d84-ace3-4adad64d5793
 # ╠═9ed24133-1c55-479b-a2cc-b9bf5e2485d3
 # ╟─d49858d1-8893-460a-acee-dee28fa6f9a4
+# ╟─112801d4-0394-4cfb-9060-b82866a42260
+# ╟─02a0e831-3c8a-4b06-b109-9b63afd437b4
+# ╟─a576397b-3e4c-4de3-8249-12022d6f4f9f
+# ╟─3f75edf0-6491-406e-b4c4-d841d843e654
+# ╟─af811922-8166-42bd-83d1-56e48a114bcc
+# ╟─690b909a-f6de-4526-bc07-91b1cbaeb267
+# ╠═3e9360a8-6a19-487d-ad2f-d412ed357619
+# ╟─7fa034a7-9b89-47c5-8351-8d6a6e98fc42
+# ╟─c8ec33e8-b1b0-4fac-b5c2-074cdb1ce2cc
+# ╟─bb401e11-09de-48a5-a35a-f2477eb703db
+# ╟─f30b7011-b8f0-4c30-b16b-783013e1f297
+# ╠═ee87bd18-367c-4d50-8376-c8e14b40d9b3
+# ╟─f2385292-a021-4482-9935-6cc1d0918556
+# ╟─d25943dc-6013-44eb-b3ed-8b4a21ec8177
+# ╟─500da8fb-8a54-44f1-be8b-3659ddab61e2
+# ╟─7742e8e7-ff63-47e1-85f5-09bc24c17dc1
+# ╠═3a7da857-e098-44d9-b7d8-f834ea7fc9e0
 # ╟─df3a9cc5-c962-47f4-be41-52ffbc15101b
+# ╟─a51ef2f7-4b54-4dae-8e28-c3ccd8d96a8e
+# ╟─7face994-929b-4b95-b2bb-e39f87c13107
 # ╠═1f49de3f-06e2-41e9-a706-c43f5d0ff4cf
+# ╟─42648fe7-2597-443c-9843-5cd284922f9e
+# ╟─175e5cb5-06a2-4c91-9fb0-cb37205d8c56
 # ╟─ade85e2d-7e06-416f-b38f-3e79538ea676
-# ╠═4b0f3910-b5ae-11ec-0f30-297917b31c5c
-# ╟─00000000-0000-0000-0000-000000000001
-# ╟─00000000-0000-0000-0000-000000000002
+# ╟─a56b34d9-f4c2-4ef6-99c3-873714f8ae1b
+# ╠═5786faeb-96b1-44f1-afc1-ebef1a91d23f
+# ╟─808e4d36-dbb3-4044-94af-c3948a8c128e
+# ╠═79e9fe0d-473a-4e8a-8d5b-aa7628457d3d
+# ╟─bcce393a-4cdf-4a84-ba5f-c560b784f6ba
+# ╟─1d48464c-70c1-4ca3-8695-010e6430149e
+# ╟─ba60ae0f-fa74-487e-bbc2-10582b7e980c
+# ╠═90edf48b-e30d-4683-a54e-a9419aa7d139
+# ╠═3511a009-7c66-426b-a117-b5fc937980bd
+# ╟─4e9a6bc5-c021-49f2-8f69-366fde7f6c44
+# ╟─a45814b3-ae75-4061-850a-a274b5fc76b9
+# ╠═61a167af-6718-45d3-ad9c-7e72e863fc48
+# ╟─2bf0d9b9-e996-4a43-a657-918d0ff6b851
+# ╟─d652c699-ced0-4bb4-bf9f-6c9321413e81
+# ╟─2a0f74b7-90fb-4b04-aa5b-80a5df406497
+# ╠═75dfbbe4-9aac-4fbe-87e5-18ddbd64d6db
+# ╟─2c09d054-dc8f-4385-ab46-8e7aeb6503e6
+# ╟─438e636a-ebb2-4604-b9b1-902f9225232b
+# ╠═928da38f-bee1-4daf-832d-117d8c210aef
+# ╟─fa48ed7b-61ae-49bc-bb94-fbdb698963b5
+# ╟─77c734e9-f0af-4bf3-8aa1-7cb41ca7b3e9
+# ╠═68767212-aeb2-4d9a-9f7b-a64128304c71
+# ╟─c5ca41e7-2b70-4455-a520-ac132d5cbc1b
+# ╟─4bcb1a7c-5a19-4cdd-971f-74bb098578fe
+# ╠═77b3a347-c9b8-4e00-8bc2-e986ee629901
+# ╟─80122d16-969a-4995-bb83-263bb2c136cd
+# ╟─15d6fea5-8b6d-4378-96d8-8ce5d68e070f
+# ╠═da7d80e6-602c-41d6-834f-faa71a616dc8
