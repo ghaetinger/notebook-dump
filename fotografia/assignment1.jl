@@ -17,9 +17,6 @@ end
 # ╔═╡ 4e03a70e-fbda-11ec-27e8-57c94e35d7f5
 using Images, PyCall, HypertextLiteral, PlutoUI, LinearAlgebra, DSP, Latexify
 
-# ╔═╡ 0fb190f1-4663-42d7-9298-1e3f09ca34e1
-md"# Reading Raw Images"
-
 # ╔═╡ 353d5894-7748-4dba-99b7-ac73d18cb02c
 @htl("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,35 +29,120 @@ md"# Reading Raw Images"
 	h4 { font-family: 'Arima', sans-serif !important; }
 	p { font-family: 'Arima', sans-serif !important; }
 	b { font-family: 'Arima', sans-serif !important; }
+    pluto-output.rich_output { overflow-x: unset; }
 </style>
 """)
 
-# ╔═╡ 781e0856-24a4-41aa-8d37-727a48e1016b
-md"abc"
+# ╔═╡ 8db7742a-a33a-487e-a70a-494607f20ae7
+@htl("""
+<div style="border: solid black; padding: 10px;">
+<h1 style="text-align: center">Assignment 1: Raw Image Decoder</h1>
+<h4 style="text-align: center">Guilherme Gomes Haetinger - 00274702</h4>
+</div>
+""")
+
+# ╔═╡ d8a61941-ea04-41fb-ae05-506ad0e1b3a4
+md"""
+**Proposal**:
+*The goal of this assignment is to familiarize the students with how digital cameras acquire and process  images.  For  this,  you  will  be  implementing  a  raw  image  decoder.  A  CCD  is  a monochromatic sensor and in order to capture color images, digital cameras use color filters on top of the CCD. To reduce cost and simplify design and construction, most cameras use a single CCD  with  a  color  filter  array  (CFA),  such  as  the  Bayer  filter  (see  Figure  1).  Thus,  the  image processing module of a digital camera has to convert the captured raw image data into a full‐color image.*
+"""
+
+# ╔═╡ ff82d428-2e3c-4ed7-9fe1-1d0032d55703
+md"# Environment Setup"
+
+# ╔═╡ 022456b3-27f1-45da-9836-438af789a1fd
+md"### Libraries"
+
+# ╔═╡ 228d9438-685b-4278-8ea7-dd836363bddf
+md"### Python environment fix"
+
+# ╔═╡ 0b24ae86-e251-4d78-9275-42c49fa74176
+link_dir = read(`which python`, String)[1:end-1]
+
+# ╔═╡ 2a193177-f290-408a-8ad3-7f3b1c93cf6f
+python_environment = read(`readlink -f $link_dir`, String)[1:end-length("/bin/python/" )]
+
+# ╔═╡ 9c1b248f-9915-4b41-9120-1e5fe9ae1a49
+pushfirst!(
+	pyimport("sys")."path",
+	joinpath(python_environment, "lib/python3.9/site-packages")
+);
+
+# ╔═╡ 26f137ef-0ced-4afa-9c54-dd28bb8bec8d
+md"# Introduction"
+
+# ╔═╡ 7d406314-7bfe-408e-9774-43a991d43642
+md"""
+Building the raw image decoder designated to us, students, takes essentially four steps:
+
+- **Reading an image** avoiding all libraries that do all the work for you, *i. e.* finding a library that will give you a correct mosaic of values;
+
+- **Demosaic the image** in a way that it respect the image mosaic pattern (which should be also fetched from the raw image metadata);
+
+- **Apply whitebalancing** to the image in a way that we get a more real like color distribution (not too green, red or blue). This can be made through a couple of ways and we'll be exploring a single one: *Scaling Camera RGB*;
+
+- **Apply γ-correction** to produce a more real-like picture by enhancing the light effect in the dark areas.
+"""
+
+# ╔═╡ 397e9d24-301b-46c4-8161-1937b19daf95
+md"""
+I've setup three pictures to undergo this whole process. One of them was given with the assignment and the other two were taken with my cellphone, which has the ability of taking *.dng* raw photos.
+
+The image given along the assignment was converted from *.CR2* to *.dng* by Adobe's Digital Negative converter sofware. We'll be using this as our main picture to go along the illustrative examples.
+"""
+
+# ╔═╡ 25af2871-6506-4556-97f5-aecf0746ee67
+begin
+	imgs = readdir("./res/jpgs/") .|>
+		   file -> joinpath("./res/jpgs", file) |>
+		   load |>
+		   img -> PlutoUI.ExperimentalLayout.Div(img, style=Dict("width" => "15em"))
+	PlutoUI.ExperimentalLayout.hbox(imgs, style=Dict("align-items" => "center"))
+end
+
+# ╔═╡ 0fb190f1-4663-42d7-9298-1e3f09ca34e1
+md"# Reading Raw Images"
 
 # ╔═╡ a899b736-922c-4139-ac85-e2fc7fa52497
-@bind filename Select(readdir("./res"))
+@bind filename Select(readdir("./res/dngs"), default="scene_raw.dng")
+
+# ╔═╡ ed9e1310-2f6e-43b7-9bc3-4bd76a6c0a74
+md"""
+I used **Julia** to program this whole assignment, but took advantage of Python's *rawpy* library to read raw image information. This way we can simply extract a variable `raw_pixels` from the read image.
+
+"""
 
 # ╔═╡ 5eb222ff-0413-450c-9fbf-58b89bc8b159
-rawpy = pyimport("rawpy")
+rawpy = PyCall.pyimport("rawpy");
 
-# ╔═╡ c72bd8c2-1fcb-4f39-829a-e0747e3afa6f
-raw = rawpy.imread("./res/$filename")
+# ╔═╡ 00687920-7625-45fe-9a6a-fad401a93e24
+function read_image_and_normalize_content(filename)
+	raw = rawpy.imread("./res/dngs/$filename");
+	raw_pixels = raw.raw_image;
+	norm = Int.(raw_pixels) / maximum(raw_pixels);
+	Gray.(norm)
+end;
 
-# ╔═╡ b734f8c4-9546-4f3b-9b0c-be29ee346036
-raw_pixels = raw.raw_image;
+# ╔═╡ 5234ce64-51ec-4552-81a5-61905f5ce17b
+grayscale = read_image_and_normalize_content("scene_raw.dng")
 
-# ╔═╡ c6f1c40c-9929-45fe-94d3-5add93ac12fb
-norm = Int.(raw_pixels) / maximum(raw_pixels);
+# ╔═╡ 0272f0c8-f017-4d32-bd04-3e1f028c1c6c
+["BB8.dng", "Piano.dng"] .|> read_image_and_normalize_content
 
-# ╔═╡ 4e4d0714-0535-4825-9ce4-3625b9610f33
-grayscale = norm .|> Gray
-
-# ╔═╡ bb1a943f-d5d3-4e84-97ce-a196714f8907
-(rows, cols) = size(grayscale);
+# ╔═╡ e67d0353-27d0-4944-a881-c638729fa573
+PlutoUI.ExperimentalLayout.hbox([md"""
+If we zoom in, we can actually see how mosaicked this image is even when monochromatic, since different colors have different influence values on the output image.
+""", grayscale[200:220, 200:220]])
 
 # ╔═╡ 17749ad8-0259-48d0-94b3-3c1265510c99
-md"# Filling in the Color Mosaic"
+md"## Filling in the Color Mosaic"
+
+# ╔═╡ 78f3c2c8-c38d-4fb5-9c63-d5e82eb24ae0
+md"""
+To understand how exactly we should be filling the mosaic, *i. e.* assigning each pixel to a given color, we need to first pick a pattern out of two possible Bayer filter patterns. To do so, we use the `raw_pattern` value from *rawpy*.
+
+The possible patterns are the following:
+"""
 
 # ╔═╡ 56a5bc8f-44c4-469f-b96e-3a10312ade99
 begin
@@ -77,17 +159,39 @@ pattern2 = [
 latexify(("pattern_1", "pattern2"), (pattern1, pattern2), env=:align)
 end
 
-# ╔═╡ 164b69bf-084a-463f-9de2-6fa5800d83d3
-@bind pattern Select(["pattern1", "pattern2"])
+# ╔═╡ 077f11c0-12ff-4da8-9122-335ab051b701
+md"""
+The format defines in which diagonal the green value takes over. In our example images, we have $pattern_1$ in our assignment image and $pattern_2$ in the rest.
 
-# ╔═╡ da96ca6f-9ad1-42e5-a0d6-0fe31dc256a5
-begin
+We can calculate the pattern for an image by computing the determinant of the `raw_pattern` matrix from *rawpy* and checking if it determinant is positive or negative.
+"""
+
+# ╔═╡ 88caa579-6376-4080-b1e6-0e7bdad1a667
+function get_file_pattern(filename)
+	raw = rawpy.imread("./res/dngs/$filename");
+	pattern = raw.raw_pattern
+	det(pattern) < 0 ? "pattern_1" : "pattern_2"
+end;
+
+# ╔═╡ a7051130-902c-4287-b481-d1f2349ca5ba
+scene_pattern = get_file_pattern("scene_raw.dng")
+
+# ╔═╡ 38230a36-50cb-49c5-b7d0-5dae8a97b0b5
+md"""
+Now that we know the pattern for the image, we can simply setup the indices that populate each channel. In **Julia**, we can do that by having an array of *CartesianIndex* for each color channel.
+
+To populate them, we can move around the image indices by moving a $2x2$ matrix and filling in the correct indices.
+"""
+
+# ╔═╡ 262e6d13-6dd5-4b2c-8561-46948d28502a
+function create_color_channel_idxs(image, pattern)
+	(rows, cols) = size(image);
 	red_idxs = []
 	green_idxs = []
 	blue_idxs = []
 	for i ∈ (1:2:rows)
 		for j ∈ (1:2:cols)
-			if (pattern == "pattern1")
+			if (pattern == "pattern_1")
 				push!(red_idxs, (i, j))
 				push!(green_idxs, (i, j + 1))
 				push!(green_idxs, (i + 1, j))
@@ -103,36 +207,76 @@ begin
 	red_idxs = red_idxs .|> CartesianIndex
 	green_idxs = green_idxs .|> CartesianIndex
 	blue_idxs = blue_idxs .|> CartesianIndex
+	return (red_idxs, green_idxs, blue_idxs)
 end;
+
+# ╔═╡ d6cf7a17-f149-4e92-9fd2-573e1017b5fb
+md"""
+Generating the color channel given the indices should be quite easy now. We can generate a blank version the same size of the image using `zeros`, fill it up given the `CartesianIndex` array and make sure it's properly shaped with the original dimensions.
+"""
 
 # ╔═╡ 9ec90d84-66be-463d-844e-43c24b3c6505
 function setup_color_channel(idxs, values, rows, cols)
 	img = zeros((rows, cols))
 	img[idxs] = values[idxs]
-	img = reshape(img, (rows, cols))
-end
+	return reshape(img, (rows, cols))
+end;
+
+# ╔═╡ c8d3cc70-9f2a-4896-8fef-49933c825d6d
+md"""
+Doing this for every channel should be as straightforward as the following function:
+"""
 
 # ╔═╡ b66d8053-e997-4dc9-a4f6-c104d35296cb
-begin
+function setup_color_channels(image, red_idxs, green_idxs, blue_idxs)
+	(rows, cols) = size(image);
 	R = setup_color_channel(red_idxs, grayscale, rows, cols)
 	G = setup_color_channel(green_idxs, grayscale, rows, cols)
 	B = setup_color_channel(blue_idxs, grayscale, rows, cols)
+	return (R, G, B)
 end;
 
-# ╔═╡ db0ede9b-b7f7-478f-a01f-2a79a4310352
-sz = 20
+# ╔═╡ c7c55911-c056-4e8a-91db-363957c6c4b0
+md"""
+From now on, we'll be working on channels separately as they are completely independent from each other. Once we have a decent result, we can then put them together with the `colorview` function. Thus, we can retrieve the color channels from the pattern using the code below.
+"""
 
-# ╔═╡ ee006d0d-85d4-4432-b8a9-631119669b87
-@bind idx Slider(1:2:rows-sz-1; default=1785)
+# ╔═╡ 1f5a9ad8-20de-4ef3-ab1f-bac95d20ebbc
+(red_idxs, green_idxs, blue_idxs) =
+	create_color_channel_idxs(grayscale, scene_pattern);
 
-# ╔═╡ aa1cb373-2b3e-496c-a18f-7349cd23f2d3
-let
-	R_, G_, B_ = [C[idx:idx+sz, idx:idx+sz] .|> Gray for C in [R, G, B]]
-	PlutoUI.ExperimentalLayout.vbox([[R_, G_, B_], [colorview(RGB, R_, G_, B_)]])
-end
+# ╔═╡ ba9eb291-ce6a-4cad-b471-3daa6517aadc
+(R, G, B) = setup_color_channels(grayscale, red_idxs, green_idxs, blue_idxs);
+
+# ╔═╡ 49ae0a41-bf81-46d6-905b-47f898d0a1fe
+md"""
+We can see how the pattern is reflected by plotting the values of each channel!
+
+| R | G | B | RGB |
+|---|---|---|-----|
+| $(Gray.(R[200:220, 200:220]))  | $(Gray.(G[200:220, 200:220]))  | $(Gray.(B[200:220, 200:220]))  | $(colorview(RGB, R, G, B)[200:220, 200:220]) |
+
+"""
+
+# ╔═╡ 5ee77197-6b2a-4b92-8eb1-0e95d9919fe9
+colorview(RGB, R, G, B)
 
 # ╔═╡ 261edcd3-bb30-4f11-b174-280e5c3889f1
 md"# Demosaicking"
+
+# ╔═╡ e185a6d2-073a-40ad-af8f-7d67d6c761fc
+md"""
+Now that we have the separate channels, we can move on to Demosaicking. This process is done by finding the values of the missing pixels in each channel. We'll be using Bilinear Interpolation to do so. This can be achieved by applying matrix convolution to each channel. The kernels used for this will be the same for the red and blue channel, but will be different for the green channel, which has more pixels in the image.
+
+It's easier to think of them in the following way:
+
+- The green channel's missing pixels will be either red or blue, both of which have green neighbors in all points but the diagonals. Hence, their kernel will be missing weights for the corners.
+
+- The red and blue channels need to look for either pixels on the diagonal, where they need to weight 4 pixels, or look for pixels on the sides, where they'll only have 2 pixels weighted.
+
+Thus, they are represented as follows:
+
+"""
 
 # ╔═╡ ac97e01e-ebd7-476e-8360-99fedbbdfc45
 begin
@@ -144,27 +288,48 @@ end;
 # ╔═╡ eff57c69-9140-407e-8c87-deffce586bfb
 latexify((("K_r = K_b", "K_g"), (K_r, K_g)), env=:align)
 
+# ╔═╡ d53e7af6-eb7e-45cc-b331-ebce1e276483
+md"""
+We can apply the convolution by using the `conv` function, dividing by the defined weight (in this case, 4), clipping out the resulted borders and clamping the results to keep all values in the range $[0, 1]$.
+"""
+
 # ╔═╡ b4c784ab-45d9-4a41-996a-5de879b32ea7
 function conv_norm(K, M)
 	convoluted = conv(K, M)[2:end-1, 2:end-1] / 4.0
 	return clamp.(convoluted, 0, 1)
 end
 
-# ╔═╡ 93446477-b42a-437c-8c06-92c2f5478ee2
-begin
+# ╔═╡ 0c88c830-ce93-4bfe-8246-31becc6ace30
+function conv_image(R, G, B)
+	K_r = [ 1 2 1; 2 4 2; 1 2 1 ];
+	K_b = K_r;
+	K_g = [ 0 1 0; 1 4 1; 0 1 0 ];
 	R_c = conv_norm(K_r, R)
 	G_c = conv_norm(K_g, G)
 	B_c = conv_norm(K_b, B)
-end;
+	return (R_c, G_c, B_c)
+end
+
+# ╔═╡ 0600353f-f353-4bd5-a4d5-0bcf26c3c412
+(R_c, G_c, B_c) = conv_image(R, G, B);
 
 # ╔═╡ a2e61c94-415d-4018-8437-098de32364d4
 demosaicked = colorview(RGB, R_c, G_c, B_c)
 
-# ╔═╡ 94f1805f-0a3f-451c-aed6-cac4ae76138d
-@bind idx_convoluted Slider(1:2:rows-sz-1; default=1785)
-
-# ╔═╡ f1aeb3e6-2855-47a2-a356-49e2a64f3536
-demosaicked[idx_convoluted:idx_convoluted + sz,idx_convoluted:idx_convoluted + sz] 
+# ╔═╡ e584e403-5c37-4b58-b129-f47bbd253c86
+begin
+#	function full_til_demosaick(filename)
+#		gray = read_image_and_normalize_content(filename)
+#		scene_pattern = get_file_pattern(filename)
+#		(red_idxs, green_idxs, blue_idxs) =
+#			create_color_channel_idxs(gray, scene_pattern);
+#		(R, G, B) = setup_color_channels(gray, red_idxs, green_idxs, blue_idxs);
+#		(R_c, G_c, B_c) = conv_image(R, G, B);
+#		colorview(RGB, R_c, G_c, B_c)
+#	end
+#
+#	["BB8.dng", "Piano.dng"] .|> full_til_demosaick
+end
 
 # ╔═╡ 487908e4-c1da-489d-97f0-7d7296171654
 md"# White Balance"
@@ -231,6 +396,7 @@ clicker = @bind coord ImageClicker("a2e61c94-415d-4018-8437-098de32364d4", "whit
 
 # ╔═╡ db4a481f-d170-41b6-88ed-b6c1dfb903e6
 true_white = let
+	(rows, cols) = size(grayscale)
 	x = ismissing(coord) ? 0.5 : coord["x"] * cols |> floor |> Int64
 	y = ismissing(coord) ? 0.5 : coord["y"] * rows |> floor |> Int64
 	@info x, y
@@ -238,10 +404,33 @@ true_white = let
 end
 
 # ╔═╡ bb118283-e82f-45f7-a9a3-fde1e5d1b95e
-applied_example = apply_white_balancing(demosaicked, true_white);
+white_balanced = apply_white_balancing(demosaicked, true_white);
 
 # ╔═╡ a0d071a8-46ba-4f12-b733-32b318471558
-PlutoUI.ExperimentalLayout.vbox([clicker, applied_example])
+PlutoUI.ExperimentalLayout.vbox([clicker, white_balanced])
+
+# ╔═╡ da19139d-ab23-4c04-8f36-bf4102d5cef0
+md"# Gamma Correction" 
+
+# ╔═╡ 5459ed87-9748-4b1f-8ed7-73e1451b7298
+"""
+	apply_gamma_correction(image, γ)
+
+Apply gamma correction given an `image` and a `γ`.
+"""
+function apply_gamma_correction(image, γ)
+	channels = channelview(image)
+	R_gc = (channels[1, :, :]) .^ γ
+	G_gc = (channels[2, :, :]) .^ γ
+	B_gc = (channels[3, :, :]) .^ γ
+	colorview(RGB, R_gc, G_gc, B_gc)
+end
+
+# ╔═╡ 0b0de13c-c10c-48f7-9a2e-224ce2673849
+@bind γ Slider(0:0.1:3; show_value=true)
+
+# ╔═╡ e60fbfb8-ca57-452b-a019-fab982f0a929
+apply_gamma_correction(white_balanced, γ)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -267,7 +456,7 @@ PyCall = "~1.93.1"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -438,7 +627,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.DualNumbers]]
@@ -471,9 +660,6 @@ git-tree-sha1 = "9267e5f50b0e12fdfd5a2455534345c4cf2c7f7a"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 version = "1.14.0"
 
-[[deps.FileWatching]]
-uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
-
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
@@ -485,12 +671,6 @@ deps = ["Printf"]
 git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
-
-[[deps.Ghostscript_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "78e2c69783c9753a91cdae88a8d432be85a2ab5e"
-uuid = "61579ee1-b43e-5ca0-a5da-69d92c66a64b"
-version = "9.55.0+0"
 
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -565,16 +745,16 @@ uuid = "82e4d734-157c-48bb-816b-45c225c6df19"
 version = "0.6.6"
 
 [[deps.ImageMagick]]
-deps = ["FileIO", "ImageCore", "ImageMagick_jll", "InteractiveUtils", "Libdl", "Pkg", "Random"]
-git-tree-sha1 = "5bc1cb62e0c5f1005868358db0692c994c3a13c6"
+deps = ["FileIO", "ImageCore", "ImageMagick_jll", "InteractiveUtils"]
+git-tree-sha1 = "ca8d917903e7a1126b6583a097c5cb7a0bedeac1"
 uuid = "6218d12a-5da1-5696-b52f-db25d2ecc6d1"
-version = "1.2.1"
+version = "1.2.2"
 
 [[deps.ImageMagick_jll]]
-deps = ["Artifacts", "Ghostscript_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pkg", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "f025b79883f361fa1bd80ad132773161d231fd9f"
+deps = ["JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pkg", "Zlib_jll", "libpng_jll"]
+git-tree-sha1 = "1c0a2295cca535fabaf2029062912591e9b61987"
 uuid = "c73af94c-d91f-53ed-93a7-00f77d67a9d7"
-version = "6.9.12+2"
+version = "6.9.10-12+3"
 
 [[deps.ImageMetadata]]
 deps = ["AxisArrays", "ImageAxes", "ImageBase", "ImageCore"]
@@ -590,9 +770,9 @@ version = "0.3.2"
 
 [[deps.ImageQualityIndexes]]
 deps = ["ImageContrastAdjustment", "ImageCore", "ImageDistances", "ImageFiltering", "LazyModules", "OffsetArrays", "Statistics"]
-git-tree-sha1 = "3324615418f676d9ac3a804de2b330ce50499721"
+git-tree-sha1 = "40c9e991dbe0782a1422e6dca6c487158f3ca848"
 uuid = "2996bd0c-7a13-11e9-2da2-2f5ce47296a9"
-version = "0.3.1"
+version = "0.3.2"
 
 [[deps.ImageSegmentation]]
 deps = ["Clustering", "DataStructures", "Distances", "Graphs", "ImageCore", "ImageFiltering", "ImageMorphology", "LinearAlgebra", "MetaGraphs", "RegionTrees", "SimpleWeightedGraphs", "StaticArrays", "Statistics"]
@@ -1054,9 +1234,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.SpecialFunctions]]
 deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "a9e798cae4867e3a41cae2dd9eb60c047f1212db"
+git-tree-sha1 = "d75bda01f8c31ebb72df80a46c88b25d1c79c56d"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.1.6"
+version = "2.1.7"
 
 [[deps.StackViews]]
 deps = ["OffsetArrays"]
@@ -1191,41 +1371,66 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
+# ╟─353d5894-7748-4dba-99b7-ac73d18cb02c
+# ╟─8db7742a-a33a-487e-a70a-494607f20ae7
+# ╟─d8a61941-ea04-41fb-ae05-506ad0e1b3a4
+# ╟─ff82d428-2e3c-4ed7-9fe1-1d0032d55703
+# ╟─022456b3-27f1-45da-9836-438af789a1fd
 # ╠═4e03a70e-fbda-11ec-27e8-57c94e35d7f5
+# ╟─228d9438-685b-4278-8ea7-dd836363bddf
+# ╟─0b24ae86-e251-4d78-9275-42c49fa74176
+# ╟─2a193177-f290-408a-8ad3-7f3b1c93cf6f
+# ╠═9c1b248f-9915-4b41-9120-1e5fe9ae1a49
+# ╟─26f137ef-0ced-4afa-9c54-dd28bb8bec8d
+# ╟─7d406314-7bfe-408e-9774-43a991d43642
+# ╟─397e9d24-301b-46c4-8161-1937b19daf95
+# ╟─25af2871-6506-4556-97f5-aecf0746ee67
 # ╟─0fb190f1-4663-42d7-9298-1e3f09ca34e1
-# ╠═353d5894-7748-4dba-99b7-ac73d18cb02c
-# ╠═781e0856-24a4-41aa-8d37-727a48e1016b
-# ╠═a899b736-922c-4139-ac85-e2fc7fa52497
+# ╟─a899b736-922c-4139-ac85-e2fc7fa52497
+# ╟─ed9e1310-2f6e-43b7-9bc3-4bd76a6c0a74
 # ╠═5eb222ff-0413-450c-9fbf-58b89bc8b159
-# ╠═c72bd8c2-1fcb-4f39-829a-e0747e3afa6f
-# ╠═b734f8c4-9546-4f3b-9b0c-be29ee346036
-# ╠═c6f1c40c-9929-45fe-94d3-5add93ac12fb
-# ╠═4e4d0714-0535-4825-9ce4-3625b9610f33
-# ╠═bb1a943f-d5d3-4e84-97ce-a196714f8907
+# ╠═00687920-7625-45fe-9a6a-fad401a93e24
+# ╟─5234ce64-51ec-4552-81a5-61905f5ce17b
+# ╟─0272f0c8-f017-4d32-bd04-3e1f028c1c6c
+# ╟─e67d0353-27d0-4944-a881-c638729fa573
 # ╟─17749ad8-0259-48d0-94b3-3c1265510c99
+# ╟─78f3c2c8-c38d-4fb5-9c63-d5e82eb24ae0
 # ╟─56a5bc8f-44c4-469f-b96e-3a10312ade99
-# ╠═164b69bf-084a-463f-9de2-6fa5800d83d3
-# ╠═da96ca6f-9ad1-42e5-a0d6-0fe31dc256a5
+# ╟─077f11c0-12ff-4da8-9122-335ab051b701
+# ╠═88caa579-6376-4080-b1e6-0e7bdad1a667
+# ╟─a7051130-902c-4287-b481-d1f2349ca5ba
+# ╟─38230a36-50cb-49c5-b7d0-5dae8a97b0b5
+# ╠═262e6d13-6dd5-4b2c-8561-46948d28502a
+# ╟─d6cf7a17-f149-4e92-9fd2-573e1017b5fb
 # ╠═9ec90d84-66be-463d-844e-43c24b3c6505
+# ╟─c8d3cc70-9f2a-4896-8fef-49933c825d6d
 # ╠═b66d8053-e997-4dc9-a4f6-c104d35296cb
-# ╟─db0ede9b-b7f7-478f-a01f-2a79a4310352
-# ╟─ee006d0d-85d4-4432-b8a9-631119669b87
-# ╟─aa1cb373-2b3e-496c-a18f-7349cd23f2d3
+# ╟─c7c55911-c056-4e8a-91db-363957c6c4b0
+# ╠═1f5a9ad8-20de-4ef3-ab1f-bac95d20ebbc
+# ╠═ba9eb291-ce6a-4cad-b471-3daa6517aadc
+# ╟─49ae0a41-bf81-46d6-905b-47f898d0a1fe
+# ╟─5ee77197-6b2a-4b92-8eb1-0e95d9919fe9
 # ╟─261edcd3-bb30-4f11-b174-280e5c3889f1
-# ╠═ac97e01e-ebd7-476e-8360-99fedbbdfc45
+# ╟─e185a6d2-073a-40ad-af8f-7d67d6c761fc
 # ╟─eff57c69-9140-407e-8c87-deffce586bfb
+# ╟─ac97e01e-ebd7-476e-8360-99fedbbdfc45
+# ╟─d53e7af6-eb7e-45cc-b331-ebce1e276483
 # ╠═b4c784ab-45d9-4a41-996a-5de879b32ea7
-# ╠═93446477-b42a-437c-8c06-92c2f5478ee2
-# ╠═a2e61c94-415d-4018-8437-098de32364d4
-# ╟─94f1805f-0a3f-451c-aed6-cac4ae76138d
-# ╟─f1aeb3e6-2855-47a2-a356-49e2a64f3536
+# ╠═0c88c830-ce93-4bfe-8246-31becc6ace30
+# ╠═0600353f-f353-4bd5-a4d5-0bcf26c3c412
+# ╟─a2e61c94-415d-4018-8437-098de32364d4
+# ╠═e584e403-5c37-4b58-b129-f47bbd253c86
 # ╟─487908e4-c1da-489d-97f0-7d7296171654
-# ╟─97ef41f3-f49e-42fc-a3b0-17211202852b
+# ╠═97ef41f3-f49e-42fc-a3b0-17211202852b
 # ╟─f725f548-a4b1-4a56-b8a2-5defce078756
 # ╟─b77e54c9-7283-4662-9be0-8f8da6412c61
 # ╠═25d6d8f1-3d31-49bf-a549-c9f8d7f334bc
 # ╠═bb118283-e82f-45f7-a9a3-fde1e5d1b95e
-# ╠═db4a481f-d170-41b6-88ed-b6c1dfb903e6
+# ╟─db4a481f-d170-41b6-88ed-b6c1dfb903e6
 # ╠═a0d071a8-46ba-4f12-b733-32b318471558
+# ╟─da19139d-ab23-4c04-8f36-bf4102d5cef0
+# ╠═5459ed87-9748-4b1f-8ed7-73e1451b7298
+# ╠═0b0de13c-c10c-48f7-9a2e-224ce2673849
+# ╠═e60fbfb8-ca57-452b-a019-fab982f0a929
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
