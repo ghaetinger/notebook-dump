@@ -18,7 +18,7 @@ end
 begin
 	using Pkg
 	Pkg.activate(".")
-	using HypertextLiteral, PlutoUI, Portinari, Images, StaticArrays
+	using HypertextLiteral, PlutoUI, Portinari, Images, StaticArrays, Latexify
 end
 
 # ╔═╡ 92565f5d-c70f-4737-8787-2e368c9a89cb
@@ -146,8 +146,12 @@ function escala_uniforme(s, forma :: F) where F <: Forma
 		s 0;
 		0 s
 	];
+	@info latexify("$M * $P = $(M * P)")
 	return matriz_para_forma(M * P, F)
 end
+
+# ╔═╡ a6521bf4-2e53-4285-8e38-312775f5ff84
+latexify([ "s" 0; 0 "s" ])
 
 # ╔═╡ 47788a79-7256-49ba-b86c-a07ed54fcf9e
 eu_ui = @bind eu Slider(0:0.1:2; default=0.5, show_value=true);
@@ -186,6 +190,9 @@ PlutoUI.ExperimentalLayout.vbox(
 
 # ╔═╡ 9f1c917a-e5b7-48bc-af12-1a2dd27590a2
 md"### Reflexão"
+
+# ╔═╡ 5ed356ef-368a-4e6f-b6fb-828c5557e094
+latexify([ "s" 0; 0 "s" ])
 
 # ╔═╡ 38d3ae40-cc3d-45fb-a0f0-940ec2b05356
 refl_ui = @bind refl Slider(-2:0.1:2; default=0.5, show_value=true);
@@ -236,8 +243,12 @@ function escala_nao_uniforme(sx, sy, forma :: F) where F <: Forma
 		sx 0;
 		0 sy
 	];
+	@info latexify("$M * $P = $(M * P)")
 	return matriz_para_forma(M * P, F)
 end
+
+# ╔═╡ 811f6dec-639f-4a8f-afd5-32b6aab35534
+latexify([ "s_x" 0; 0 "s_y" ])
 
 # ╔═╡ 6bc2fe4f-8b9c-4cd1-b61f-ebbed893ef6f
 enu_x_ui = @bind enu_x Slider(-2:0.1:2; default=0.5, show_value=true);
@@ -289,8 +300,12 @@ function cisalhamento(γx, γy, forma :: F) where F <: Forma
 		1 γx;
 		γy 1
 	];
+	@info latexify("$M * $P = $(M * P)")
 	return matriz_para_forma(M * P, F)
 end
+
+# ╔═╡ 8b4af24d-5ad8-4875-8dd0-e4b26d64cccb
+latexify([ 1 "γ_x"; "γ_y" 1 ])
 
 # ╔═╡ e1548ffa-39f0-46f2-b525-a93e4835d031
 cis_x_ui = @bind cis_x Slider(-2:0.1:2; default=0, show_value=true);
@@ -348,8 +363,12 @@ function rotacao(α, forma :: F) where F <: Forma
 		cos(α) -sin(α);
 		sin(α) cos(α)
 	];
+	@info latexify("$M * $P = $(M * P)")
 	return matriz_para_forma(M * P, F)
 end
+
+# ╔═╡ b06ed023-244f-4a3e-9a69-5c1c7aa600c7
+latexify([ "cos(α)" "-sin(α)"; "sin(α)" "cos(α)"])
 
 # ╔═╡ 595e5f80-b09c-405e-9255-1d8cab552257
 M = [1 2; 3 4]
@@ -401,8 +420,12 @@ function translacao(Δx, Δy, forma :: F) where F <: Forma
 		0 1 Δy;
 		0 0 1
 	];
+	@info latexify("$M * $P = $(M * P)")
 	return matriz_para_forma(M * P, F)
 end
+
+# ╔═╡ 02792a8e-8be1-4f14-902f-9d8a6a62c300
+latexify([1 0 "Δ_x"; 0 1 "Δ_y"; 0 0 1])
 
 # ╔═╡ ded4b9d8-2589-45b7-bcf7-5a266e45796b
 tra_x_ui = @bind tra_x Slider(-2:0.1:2; default=0.5, show_value=true);
@@ -448,8 +471,8 @@ PlutoUI.ExperimentalLayout.vbox(
 md"# Composição de Transformações"
 
 # ╔═╡ Cell order:
-# ╠═92565f5d-c70f-4737-8787-2e368c9a89cb
-# ╟─210b43e4-dd08-11ec-124e-832694b3f20f
+# ╟─92565f5d-c70f-4737-8787-2e368c9a89cb
+# ╠═210b43e4-dd08-11ec-124e-832694b3f20f
 # ╟─0e4384cf-20c2-4676-bda2-79538f8ff4e6
 # ╟─032dfedc-41d5-4fbb-9f10-0d3eae33f0e5
 # ╟─2c0384a9-f04e-4d32-9566-c038892c9df3
@@ -466,12 +489,14 @@ md"# Composição de Transformações"
 # ╟─1421a300-2bf3-4b9f-9178-95b66a6a9d3a
 # ╟─6d17b764-ecab-44bf-acf3-4df081b68c55
 # ╠═03d7f82f-bb17-4c36-b3ad-da2676a683a3
+# ╟─a6521bf4-2e53-4285-8e38-312775f5ff84
 # ╠═74d37fcb-6d4a-48c0-98f4-147be773337c
 # ╠═2381e76a-23e7-43d1-abbd-283c909adaa0
 # ╟─47788a79-7256-49ba-b86c-a07ed54fcf9e
 # ╟─4c6e064c-356f-4e1d-895a-f4e58a309795
 # ╟─44ec6444-fcc2-4f6f-ae9a-6b0fd5a00662
 # ╟─9f1c917a-e5b7-48bc-af12-1a2dd27590a2
+# ╟─5ed356ef-368a-4e6f-b6fb-828c5557e094
 # ╠═54478614-3599-4d6c-a5ed-64c4a8f40883
 # ╠═1ddd96a1-fa32-4c87-83cc-e121f46b6491
 # ╟─38d3ae40-cc3d-45fb-a0f0-940ec2b05356
@@ -480,6 +505,7 @@ md"# Composição de Transformações"
 # ╟─f24463ff-8350-4991-9c5f-b18ea9e57a65
 # ╟─aa3a46c3-65d7-4823-b723-1ea7cfa740cc
 # ╠═f28bdb1c-8ae3-42d0-a26d-48f5bcf456da
+# ╟─811f6dec-639f-4a8f-afd5-32b6aab35534
 # ╠═2b6e3392-c60b-4826-a845-d8ebfb9a32ef
 # ╠═534895b2-1431-42d2-883b-e3352f403372
 # ╟─6bc2fe4f-8b9c-4cd1-b61f-ebbed893ef6f
@@ -488,6 +514,7 @@ md"# Composição de Transformações"
 # ╟─b5234c02-f7db-43ef-9d2d-10895f88af04
 # ╟─29fe0461-12ff-46e2-9bf4-fe5b37036385
 # ╠═08638632-2481-4042-9762-b7c9b2ae1e9b
+# ╟─8b4af24d-5ad8-4875-8dd0-e4b26d64cccb
 # ╠═cf131b5c-1c71-4c6b-941f-be84fc9ec27b
 # ╠═3b72fd1a-372c-4ad8-8017-eb0c85733163
 # ╠═e1548ffa-39f0-46f2-b525-a93e4835d031
@@ -498,6 +525,7 @@ md"# Composição de Transformações"
 # ╟─e6786f7e-1e57-4463-8d97-8a96e618cb0c
 # ╟─28476867-729c-4cde-881d-e7e2281f8fc3
 # ╠═fe1f49d2-2ad2-4f35-9a35-f78e23c5762e
+# ╟─b06ed023-244f-4a3e-9a69-5c1c7aa600c7
 # ╠═94d4960b-7770-4af1-84c9-d0eef7fb7ffe
 # ╠═2fb79a4c-a789-49ee-a417-0e8242353d5f
 # ╠═595e5f80-b09c-405e-9255-1d8cab552257
@@ -506,6 +534,7 @@ md"# Composição de Transformações"
 # ╟─af2526b1-48d4-4d72-8072-8505a753955d
 # ╟─9050de7c-295c-4027-beff-2de0d75298c4
 # ╠═754897a1-a4ce-42ef-9192-cb5c80aaf843
+# ╟─02792a8e-8be1-4f14-902f-9d8a6a62c300
 # ╠═0bb1082e-2fa4-4d80-b1dd-e9844e18a7f0
 # ╠═36e8a759-0302-4a80-9eea-102100954c5c
 # ╟─ded4b9d8-2589-45b7-bcf7-5a266e45796b

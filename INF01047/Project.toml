@@ -1,6 +1,7 @@
 [deps]
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
+Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Portinari = "72ee7ba2-92b2-4971-a97d-28f521fe8910"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
