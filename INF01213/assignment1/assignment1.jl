@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.9
+# v0.19.10
 
 using Markdown
 using InteractiveUtils
@@ -58,7 +58,8 @@ using Images, PyCall, HypertextLiteral, PlutoUI, LinearAlgebra, DSP, Latexify
 # ╔═╡ d8a61941-ea04-41fb-ae05-506ad0e1b3a4
 md"""
 **Proposal**:
-*The goal of this assignment is to familiarize the students with how digital cameras acquire and process  images.  For  this,  you  will  be  implementing  a  raw  image  decoder.  A  CCD  is  a monochromatic sensor and in order to capture color images, digital cameras use color filters on top of the CCD. To reduce cost and simplify design and construction, most cameras use a single CCD  with  a  color  filter  array  (CFA),  such  as  the  Bayer  filter  (see  Figure  1).  Thus,  the  image processing module of a digital camera has to convert the captured raw image data into a full‐color image.*
+*The goal of this assignment is to familiarize the students with how digital cameras 
+ acquire and process  images.  For  this,  you  will  be  implementing  a  raw  image  decoder.  A  CCD  is  a monochromatic sensor and in order to capture color images, digital cameras use color filters on top of the CCD. To reduce cost and simplify design and construction, most cameras use a single CCD  with  a  color  filter  array  (CFA),  such  as  the  Bayer  filter  (see  Figure  1).  Thus,  the  image processing module of a digital camera has to convert the captured raw image data into a full‐color image.*
 """
 
 # ╔═╡ 26f137ef-0ced-4afa-9c54-dd28bb8bec8d

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.9
+# v0.19.10
 
 using Markdown
 using InteractiveUtils
@@ -15,7 +15,80 @@ macro bind(def, element)
 end
 
 # ╔═╡ de381642-2434-4667-8268-660ea5769ec7
-using Images, Statistics, PlutoUI, MAT
+using DSP, Images, ImageFiltering, HypertextLiteral, MAT, PlutoUI, Statistics, Latexify
+
+# ╔═╡ 1d63597d-d742-4b21-9e7e-73ec897a5257
+@htl("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Arima:wght@300;700&display=swap" rel="stylesheet">
+<style>
+	h1 { font-family: 'Arima', sans-serif !important; }
+	h2 { font-family: 'Arima', sans-serif !important; }
+	h3 { font-family: 'Arima', sans-serif !important; }
+	h4 { font-family: 'Arima', sans-serif !important; }
+	p { font-family: 'Arima', sans-serif !important; }
+	b { font-family: 'Arima', sans-serif !important; }
+    pluto-output.rich_output { overflow-x: unset; }
+    .monastery img { height: 20em; }
+	.jpgedimages img {height: 10em; }
+	blockquote p {
+		font-size: 0.8em;
+		font-family: sans-serif !important;
+	}
+	
+	blockquote { border: solid black }
+	.pluto-docs-binding p {
+		font-size: 0.8em !important;
+		font-family: sans-serif !important;
+	}
+	
+	.pluto-docs-binding { border: solid black !important }
+
+	.img-show img { width: 100px }
+</style>
+""")
+
+# ╔═╡ c3796886-34a8-4f18-a56b-2efb7c5e7bbd
+@htl("""
+<div style="border: solid black; padding: 10px;">
+<h1 style="text-align: center">Assignment 2: High Dynamic Range (HDR) Images</h1>
+<h4 style="text-align: center">Guilherme Gomes Haetinger - 00274702</h4>
+</div>
+""")
+
+# ╔═╡ ade34e30-d3d2-4270-a098-1254b68b2ec5
+md"""
+**Proposal**:
+*The goal of this assignment is to familiarize the students with high dynamic range (HDR) images. For this, you will be exploring and creating HDR images from a sequence of
+low dynamic range (LDR) images captured with multiple exposures. In order to display
+them on LDR displays, you will be also implementing some simple tone mapping operator.
+The assignment will also familiarize you with the concept of camera response curves
+used for mapping exposure values to pixel values.*
+"""
+
+# ╔═╡ 5d9b90c1-6cb6-45fe-950b-cffa47605273
+md"""
+# Introduction
+
+HDR images are used by most people today to take images without any over/underexposed areas. Most phones already have this functionality and allow us to create beautiful portrait or landscape photos.
+
+I have decided to use Julia for this assignment. I used Matlab to use the **makehdr** command needed for Task 5.
+"""
+
+# ╔═╡ 49bb3830-54aa-4fed-a4ca-b1b75a14783f
+md"# Task 1"
+
+# ╔═╡ da376133-7b10-425b-838b-fda45e73f7c7
+exposure_table = [1/30, 0.1, 0.33, 0.63, 1.3, 4]
+
+# ╔═╡ 4549d5d7-5ab8-44f3-a6ee-3e85ed9a9f80
+md"# Task 2"
+
+# ╔═╡ ff337e76-7f06-4ebf-a072-254d63c3940e
+md"""
+Having the previous exposure time table set, I was able to insert them into the **HDR Shop** tool to calculate the **CRC** (Camera Response Curve). We can, thus, read the curve here in Julia.
+"""
 
 # ╔═╡ a30e0020-6c9f-4abb-85e2-435fb60a9948
 inverted_parse(a, b) = parse(b, a);
@@ -27,6 +100,30 @@ function read_log_curve(filename)
 	return exp.(reshape(reduce(vcat, arrays), (3, :)))
 end
 
+# ╔═╡ ff1ed0d9-008c-4be5-8641-bf0e11afe1e2
+curve = read_log_curve("./res/curve.m")
+
+# ╔═╡ 64522ebb-9cd8-4160-bb13-1e13ca632a6c
+md"# Task 3"
+
+# ╔═╡ 8d34f96d-485d-4e09-822f-1c90764f5a21
+md"""
+Still using **HDR Shop**, we can retrieve the following HDR image:
+
+$(load("./res/outhdrshop.jpg"))
+"""
+
+# ╔═╡ 8d1fe930-ff02-4026-ba2b-be166de9113c
+md"# Task 4"
+
+# ╔═╡ 713652dc-d3ed-4ac3-a573-4c9c9ef91b66
+md"""
+Now for the main part: retrieving the HDR image through the curve. First of all, we need to load and gamma-decode our images:
+"""
+
+# ╔═╡ 2f259531-b963-4aa5-abab-56c9b0948048
+image_dir = "./res/images/office/";
+
 # ╔═╡ b6ee6188-2b46-4056-bb0f-00cbbfbd3a06
 function gamma_decode(image, γ=1/1.75)
 	channels = channelview(image)
@@ -37,26 +134,49 @@ function gamma_decode(image, γ=1/1.75)
 	return colorview(RGB, R, G, B)
 end
 
-# ╔═╡ ff1ed0d9-008c-4be5-8641-bf0e11afe1e2
-curve = read_log_curve("./res/curve.m")
-
-# ╔═╡ 2f259531-b963-4aa5-abab-56c9b0948048
-image_dir = "./res/images/office/"
-
 # ╔═╡ c869ffa7-7405-47ee-b0f2-279d1b4ed791
-images = readdir(image_dir) .|> name -> joinpath(image_dir, name) .|> load .|> gamma_decode
+images_no_decode = readdir(image_dir) .|> name -> joinpath(image_dir, name) .|> load;
 
-# ╔═╡ 865bfa1a-0d0a-4d05-9290-80213c7d7442
-images[3]
+# ╔═╡ 7ef394e8-692b-4753-9248-864a409bafe4
+images = images_no_decode .|> gamma_decode;
 
-# ╔═╡ da376133-7b10-425b-838b-fda45e73f7c7
-exposure_table = [1/30, 0.1, 0.33, 0.63, 1.3, 4]
+# ╔═╡ a25748af-b2f1-42e2-98e5-ea31b1b2af34
+md"""
+Using the **FastStone** image viewer, I was able to retrieve the exposure times of the input images:
+
+| Image  | Exposure Time |
+|---     |---            |
+|    $(PlutoUI.ExperimentalLayout.Div(images[1], class="img-show"))    |       $\frac{1}{30}$s        |
+|    $(PlutoUI.ExperimentalLayout.Div(images[2], class="img-show"))    |       $0.1$s|
+|    $(PlutoUI.ExperimentalLayout.Div(images[3], class="img-show"))    |       $0.33$s|
+|    $(PlutoUI.ExperimentalLayout.Div(images[4], class="img-show"))    |       $0.63$s|
+|    $(PlutoUI.ExperimentalLayout.Div(images[5], class="img-show"))    |       $1.3$s|
+|    $(PlutoUI.ExperimentalLayout.Div(images[6], class="img-show"))    |       $4$s|
+
+I was also able to notice how detailed the EXIF metadata for the `.CR2` images from the last assignment were. They contained `date`, `camera model`, `flash`, `focal length`, `exposure program (Aperture priority)`, `FNUM`, `Metering`, `Exposure time`, `ISO` and even more information.
+"""
+
+# ╔═╡ 2939e9ea-e111-48ca-a7cd-7b5953086e44
+PlutoUI.ExperimentalLayout.vbox([
+	PlutoUI.ExperimentalLayout.hbox(vcat([md"not decode", md":"], images_no_decode), class="img-show"),
+	PlutoUI.ExperimentalLayout.hbox(vcat([md"γ-decoded", md":"], images), class="img-show")
+])
+
+# ╔═╡ 3afa5b5f-c461-42a4-b809-08f9522e7f97
+md"## Clamping method"
+
+# ╔═╡ 922c5d7a-82fd-48bb-bd81-6fd06005d525
+md"""
+Now that we need to apply the curve to the image channels and put them together with a mean, my first thought on how to get rid of extremes and fit to the curve was to clamp values from the channels to $[1, 255]$. Now, this means we consider every pixel in every image, not discarding the over/underexposed pixels.
+
+Hence, we can achieve this by clamping every image before applying the curve. The following function does that and later on applies the curve and divides every value by the image exposure to retrieve the irradiance value of a pixel.
+"""
 
 # ╔═╡ 4700f4cc-f354-4c69-87e0-f3a9cb98aa6d
 function get_image_irradiance(image, curve, exposure)
 	channels = channelview(image)
 	floor_int(x) = floor(Int64, x)
-	clamp_255(x) = clamp(x, 0, 255)
+	clamp_255(x) = clamp(x, 1, 255)
 	R = channels[1, :, :] .* 255 .+ 1 .|> floor_int .|> clamp_255
 	G = channels[2, :, :] .* 255 .+ 1 .|> floor_int .|> clamp_255
 	B = channels[3, :, :] .* 255 .+ 1 .|> floor_int .|> clamp_255
@@ -72,17 +192,112 @@ function get_image_irradiance(image, curve, exposure)
 	colorview(RGB, R_n, G_n, B_n)
 end
 
-# ╔═╡ c8ede9d6-2889-4160-b5c2-7357430c03a5
-original_irradiances = [get_image_irradiance(images[i], curve, exposure_table[i]) for i ∈ 1:length(images)]
+# ╔═╡ ff5d62a0-9335-46c1-bb75-42b6ff2bfccc
+md"""
+We can, then, compute this for every image and calculate the mean:
+"""
+
+# ╔═╡ 99fb664e-5e8c-4683-9066-6770caa9ec1b
+function clamping_curve_map(curve, images, exposures)
+	mean([get_image_irradiance(images[i], curve, exposures[i]) for i ∈ 1:length(images)])
+end
+
+# ╔═╡ 0d8c8896-b40f-4c73-a8c3-7927dc43a2f5
+md"""
+This results in the following HDR image (~70ms):
+"""
+
+# ╔═╡ 4ed3d93d-3205-43dd-975d-66c62aef55db
+clamping_curve_map(curve, images, exposure_table)
+
+# ╔═╡ 533f00c5-bbc8-4dfe-be26-b662dcbacb83
+md"## Discarding method"
+
+# ╔═╡ 28c428fa-535f-4d89-bbb8-9b86e433e45a
+md"""
+After using clamping, I decided to compare it with the "discard under/overexposed" pixels method using a for loop and recording which pixels should be accounted for:
+"""
+
+# ╔═╡ 05653128-1d54-46fb-b505-f341b892eb88
+function discarding_curve_map(curve, images, exposures)
+	sz = size(images[1])
+	non_discarded = zeros(sz)
+	accumulator = zeros((3, sz...))
+	(rows, cols) = sz
+	for (idx, image) ∈ enumerate(images)
+		for row ∈ (1:rows)
+			for col ∈ (1:cols)
+				discard = 0
+				final_color = [0., 0., 0.]
+				for channel ∈ [(red, 1), (green, 2), (blue, 3)]
+					color = first(channel)(image[row, col])
+					color = round(Int64, color * 255 + 1)
+					clamped_color = clamp(color, 1, 255)
+					curved = curve[last(channel), clamped_color]
+					final_color[last(channel)] += curved ./ exposures[idx]
+					if (color < 1 || color > 255)
+						discard += 1
+					end
+				end
+				if (discard < 3) 
+					accumulator[:, row, col] += final_color
+					non_discarded[row, col] += 1
+				end
+			end
+		end
+	end
+
+	return colorview(RGB, accumulator[1, :, :], accumulator[2, :, :], accumulator[3, :, :]) ./ non_discarded
+end
+
+# ╔═╡ cd3f6fdd-41e7-4be2-8a2a-a5ebb92b34d0
+md"""
+This method results in an almost exact result with a much higher computation time (~10s):
+"""
+
+# ╔═╡ cffff739-a1f8-4187-b468-2e3fe978e739
+discarding_curve_map(curve, images, exposure_table)
+
+# ╔═╡ 4ebf4bc0-3a53-49e7-8299-01838b5e5aa6
+md"## Playing with exposure"
+
+# ╔═╡ e31b2cd4-4a0d-43cd-92ad-ca689dfff096
+md"""
+Now that we've retrieved the HDR image from the image sequence, we can multiply it by whatever exposure we want. Increasing exposure gives us a sequence like the following:
+"""
 
 # ╔═╡ 1a393ecf-29ca-4fbe-86ba-80c4ad1ca80c
-final_irradiance = sum(original_irradiances) / length(images);
+hdr = clamping_curve_map(curve, images, exposure_table)
 
-# ╔═╡ ecdf7ba0-c998-432a-82b7-695836257241
-@bind exposure_time Slider(0.03333:0.01:2; show_value=true)
+# ╔═╡ 246ccae4-056a-4ab2-bee8-098140acb7ea
+PlutoUI.ExperimentalLayout.vbox([
+	PlutoUI.ExperimentalLayout.hbox(vcat([md"image sequence", md":"], images), class="img-show"),
+	PlutoUI.ExperimentalLayout.hbox(vcat([md"exposure multiplied images", md":"], [hdr * ex for ex ∈ exposure_table]), class="img-show")
+])
 
-# ╔═╡ 105d0109-c353-466b-aeec-3a63bba39746
-final_irradiance * exposure_time
+# ╔═╡ 24fd0b2d-df8d-4765-929e-364eaa0b3315
+md"""
+Although this isn't a perfect reproduction of the original images, we are getting all of this from the same image, which is very impressive.
+"""
+
+# ╔═╡ f9c72445-d068-4760-9180-17f3e3b95675
+md"## Tonemap command"
+
+# ╔═╡ 583bced0-6ae6-4151-88bd-34520c118c6c
+md"""
+Using Matlab's *tonemap* command, we get the following image: 
+"""
+
+# ╔═╡ 6a2b4f82-0fce-4438-93d2-0c6ff27c61d5
+load("./out/tonemapped_out.png")
+
+# ╔═╡ 70f93096-667a-4ae9-beb9-3647d50ad30a
+md"# Task 5"
+
+# ╔═╡ f70072e3-20e5-47d7-a827-9a6615e9a68d
+md"""
+Using Matlab's **makehdr** command with the image sequence, we get the following image:
+"""
 
 # ╔═╡ 97c17a3a-e4fe-46ce-a02c-e7614bd576bf
 function save_to_matlab(image, filename)
@@ -99,21 +314,299 @@ function save_to_matlab(image, filename)
 	new_image[:, :, 3] = B
 
 	matwrite(filename, Dict("hdr" => new_image))
-end
+end;
 
 # ╔═╡ dfc94077-132f-45e3-8289-f712a0b49578
-save_to_matlab(final_irradiance, "./out/office.mat")
+save_to_matlab(hdr, "./out/office.mat")
+
+# ╔═╡ 0e3d6df0-2d93-4ce1-b915-f395c9e02dc8
+a =load("./out/makehdr_out.png")
+
+# ╔═╡ 59f172d0-d1ac-4fa1-ad2b-036accca90d4
+md"""
+
+This image is much different from our HDR image. It seems to be extremely overexposed while ours seems more saturated and still shows every component of the picture (tree, computer, chair, ...). This might be because of the fact that I saved Matlab's image to PNG, removing some of the data particularities (probably clamping a lot of the data to $1.0$) and resulting on this predominantly white image.
+
+Obviously, this image isn't supposed to be used as the final result. We're still missing the the tonemapping step. Applying **tonemap** to it, we get the following image:
+"""
+
+# ╔═╡ dc7952b8-85a8-49b7-ba4e-538d19980068
+load("./out/tonemapped_new_hdrout.png")
+
+# ╔═╡ b061af34-f256-437c-b1fb-88493a18e9cf
+md"""
+Even the tonemapping result seems different. While mine seems to have more contrast, Matlab's seems more uniform. This could be a product of my custom γ value on γ-decoding. 
+"""
+
+# ╔═╡ c3669784-54c1-4faf-afd0-2d621a16bfa5
+md"# Task 6"
+
+# ╔═╡ 1d044142-29a4-45ac-a5ac-8ec861afb4a6
+md"""
+Using the algorithm learned in class, we aim to find the proper global luminance for each pixel and replace the currently present one with it. To do so, we start by retrieving the luminance of the linearized intensity with the following function:
+"""
+
+# ╔═╡ 004cf0a8-431e-4a12-a813-104e20f1dfa3
+function luminance(image)
+	channels = channelview(image)
+	R = channels[1, :, :]
+	G = channels[2, :, :]
+	B = channels[3, :, :]
+
+	return (0.299 .* R) .+ (0.587 .* G) .+ (0.114 .* B)
+end
+
+# ╔═╡ da4c6d98-770c-4cd2-9ba8-e8329834f3e9
+L = luminance(hdr);
+
+# ╔═╡ 2d35e1a0-3940-48f2-a635-30bf917d8bde
+L .|> Gray
+
+# ╔═╡ a55215fe-67fc-4a0a-9735-e478899af4b3
+md"""
+Once we have the $L(x, y)$ image, we can get the **Average Log Luminance** by computing
+
+$\tilde{L} = e^{\frac{1}{N}\sum{\log(L(x, y) + δ)}}$
+"""
+
+# ╔═╡ 5f48ab6d-618f-4026-8c74-5d62752b0e30
+δ = 1e-8
+
+# ╔═╡ b66b052e-41de-42b5-b863-d4ab03e603d5
+L̃ = exp(mean(log.(L .+ δ)))
+
+# ╔═╡ 97914b5f-9750-44d5-ac58-2cd9a918ee4b
+md"""
+Moreover, we calculate the **Scaled Luminance** using the suggested $\alpha = 0.18$:
+
+$L_s = \frac{\alpha * L}{\tilde{L}}$
+"""
+
+# ╔═╡ 3bd55dc0-07e3-4f58-97ab-800764eb1aa4
+α = 0.18
+
+# ╔═╡ 9a0addc0-9b9c-460a-95bf-ae4f7d8cc98e
+Lₛ = (α * L)/L̃;
+
+# ╔═╡ de691dc2-b1b9-4d7e-a61f-3758f50bd280
+Lₛ .|> Gray 
+
+# ╔═╡ dcfdcf4c-03f6-4db4-ac08-cbec22635c31
+md"""
+Finally, we move $L_s$ to a period $[0, 1)$ by computing the global operator:
+"""
+
+# ╔═╡ f3c0fbca-36c4-41dc-8e41-534bbd4314bd
+LG = Lₛ ./ (Lₛ .+ 1);
+
+# ╔═╡ 09333c37-c10e-4fbd-beaa-c6193cdbd31a
+md"We define the saturation as $1$ as we replace the **linearized intensity** by the **Global operator**"
+
+# ╔═╡ 8d822e59-78d6-448e-b932-8cbe836aa465
+saturation = 1
+
+# ╔═╡ 3a260b6e-155a-4edc-b819-3b6847b94b24
+tonemapped = LG .* hdr ./ L .* saturation
+
+# ╔═╡ 6f53ae2d-b9ee-4828-929e-26ba0b2bee10
+md"""
+Playing with saturation, we get the following sequence:
+$(PlutoUI.ExperimentalLayout.hbox([ LG .* hdr ./ L .* satu for satu ∈ [0.1, 0.5, 0.8, 1, 1.5, 2, 4]], class="img-show"))
+"""
+
+# ╔═╡ 1d5682da-f429-4174-9562-f04485934e97
+md"""
+We notice the image is still a bit dark, but increasing saturation might make things look overexposed. This is because we are missing a step: γ-encoding. reintegrating γ is much like we did in the previous assignment:
+"""
+
+# ╔═╡ 0e948c1b-b698-4d91-ac41-4bd5a737a886
+function gamma_encode(image, γ=1/1.75)
+	channels = channelview(image)
+	R = channels[1, :, :] .^ γ
+	G = channels[2, :, :] .^ γ
+	B = channels[3, :, :] .^ γ
+
+	return colorview(RGB, R, G, B)
+end
+
+# ╔═╡ d886e195-17b5-4770-a7d4-25971f70aea8
+gamma_encoded_tonemapped = gamma_encode(tonemapped) .|> RGB
+
+# ╔═╡ 233f0460-2d64-4749-944a-760155d98ef8
+md"""
+Needless to say, my final result is much more colorful and beautiful than Matlab's. I also thing this is because of the fact I picked a good value for γ ($1.75$).
+"""
+
+# ╔═╡ 492f7b4e-8551-47c5-900a-1f5cf5433937
+md"# Extra task: *Reinhard's local photographic operator*"
+
+# ╔═╡ 376c5a79-7233-42f7-a607-60d2a1ba7b23
+md"""
+Having all the steps for the global operator set, it's rather easy to setup the local operator. The first thing we need to do is define the key parameters for this:
+
+* ϕ (sharpness parameter)
+* σ_list, which is defined by
+  * σ_step
+  * max_σ
+* ϵ (threshold for $W(x, y)$)
+
+The following parameters were the ones that gave me the best result:
+"""
+
+# ╔═╡ 26e028e9-3c9d-4ccc-8ce7-c77e59765485
+ϕ = 10
+
+# ╔═╡ bf806dc6-27f8-443b-a895-96ef1406bde5
+max_σ = 29
+
+# ╔═╡ c83d9753-d453-426f-a95b-fbff97fe766a
+σ_step = 2
+
+# ╔═╡ 20f6a1ad-407f-4cd9-aad0-4715a34dfed0
+σ_list = collect(0:σ_step:max_σ)
+
+# ╔═╡ 9a53a711-b9cf-4222-9da7-8ffebac06c4f
+ϵ = 0.0001
+
+# ╔═╡ e1c50d81-cc24-4dc4-9a17-6840bd1bbd71
+md"""
+We can apply gaussian matrices and crop them accordingly to get a sequence of blurred **Scaled Luminance** values:
+"""
+
+# ╔═╡ 9708be17-2615-40e2-8bcd-d760ac08ffc8
+σ_stack = vcat([Lₛ], [conv(collect(Kernel.gaussian([s, s], [31, 31])), Lₛ)[16:end-15, 16:end-15] for s ∈ σ_list[2:end]]);
+
+# ╔═╡ 1b2b355b-c437-4e34-a34c-6e7a992dd807
+PlutoUI.ExperimentalLayout.grid(reshape([l .|> Gray for l in σ_stack], (:, 5)), class="img-show")
+
+# ╔═╡ 39ef672d-db51-43a9-8f3e-a7f28587730c
+md"We define a function for $W(x, y)$"
+
+# ╔═╡ d7ed5033-f37b-4bbb-adfd-0befc227f2a8
+W(x, y, σ, σ_idx, σ_stack) = 
+	(σ_stack[σ_idx][y, x] - σ_stack[σ_idx + 1][y, x])/(((2^ϕ) / (σ^2)) + σ_stack[σ_idx][y, x])
+
+# ╔═╡ e6d06cd9-96d6-4233-ac3e-07a0ce4d4a20
+md"""
+Now we create a for loop function that goes through each σ value and each pixel, checking whether $|W(x, y)| < \epsilon$. If it is, it defines a maximum σ for it and doesn't visit that pixel again. Once we have every maximum value, we replace $L_s(x, y)$ by the value of the maximum given σ stack at the $(x, y)$ pixel. 
+"""
+
+# ╔═╡ 7634afac-40b5-4587-b5d8-9b44d95e0cd1
+function local_tonemapping(Lₛ)
+	(rows, cols) = size(Lₛ)
+	σ_max = zeros(Int64, size(Lₛ))
+	W_filled = zeros(Bool, size(Lₛ))
+	for σ_idx ∈ (2:length(σ_list)-1)
+		for row ∈ (1:rows)
+			for col ∈ (1:cols)
+				if (W_filled[row, col])
+					continue
+				end
+				W_xy = W(col, row, σ_list[σ_idx], σ_idx, σ_stack)
+				if (abs(W_xy) < ϵ)
+					W_filled[row, col] = true
+				end
+				σ_max[row, col] = σ_idx
+			end
+		end
+	end
+	new_Lₛ = zeros(Float64, size(Lₛ))
+	for row ∈ (1:rows)
+			for col ∈ (1:cols)
+				idx = σ_max[row, col]
+				new_Lₛ[row, col] = σ_stack[idx][row, col]
+			end
+	end
+	return new_Lₛ
+end
+
+# ╔═╡ b8334798-62e0-4ba8-b51d-5e22c6aa54da
+md"We then do the same thing that we had done for the global operator:"
+
+# ╔═╡ 9ac25a7e-6fa8-4afd-92a1-6d1f14c5fc3e
+Ll = Lₛ ./ (local_tonemapping(Lₛ) .+ 1);
+
+# ╔═╡ 6771397b-636d-4fee-b747-47a1eaec1330
+local_tonemapped = Ll .* hdr ./ L * saturation;
+
+# ╔═╡ f582fd28-3bb6-4880-90df-219883562e4b
+local_gamma_tonemapped = gamma_encode(local_tonemapped)
+
+# ╔═╡ 4aa8f09b-c9d6-4aa9-86a4-a83526e3a32d
+md"""
+## Result comparison
+
+We can see the results below (top: global, bottom: local). The differences are easily perceivable: we have sharper details on the monitor and on the background trees.
+
+There are some artifacts in the monitor, but mostly because I exagerated on some parameters in order for the differences to be **very perceivable**.
+"""
+
+# ╔═╡ 193dca93-9d2d-4fdf-a48b-b409eb7791ec
+PlutoUI.ExperimentalLayout.vbox([gamma_encoded_tonemapped, local_gamma_tonemapped])
+
+# ╔═╡ 29445d6e-52ef-40bc-bf9f-5384b63311a5
+md"Here we can see a bit more how much sharper the local operator makes the image."
+
+# ╔═╡ 4f923665-1872-4530-925b-f5eda787bdf5
+PlutoUI.ExperimentalLayout.vbox([gamma_encoded_tonemapped[1:400, 500:end], local_gamma_tonemapped[1:400, 500:end]])
+
+# ╔═╡ 5fc81c9f-8645-4ed9-9224-b4d11dff3d41
+md"""
+# Conclusion
+
+It's truly amazing to see how this algorithm pans out in the end. HDR is a very simple idea that, when you dive deep enough, becomes a bit complicated but, nonetheless, elegant. Implementing this was a real treat and I think my results were great, specially the **Local operator** one. I wish I could've understood a bit more about how the local operator parameters affect the final result (ϕ didn't seem to have much effect).
+
+I love taking landscape pictures with HDR on! Implementing it gave me a better insight to how it works and when to use it. Here's a picture I took with HDR on my trip to Punta del Este.
+"""
+
+# ╔═╡ da3721b2-6ab9-46fe-832e-b2fb14a2a8b5
+load("./res/punta.jpg")
+
+# ╔═╡ 2644c43f-408b-4e6c-84b2-95572ff97733
+md"# Interactive playground"
+
+# ╔═╡ e9693d09-4c54-434a-9879-7e7103fce8ac
+md"## Exposure * HDR"
+
+# ╔═╡ ecdf7ba0-c998-432a-82b7-695836257241
+@bind exposure_time Slider(0.03333:0.01:2; show_value=true)
+
+# ╔═╡ 105d0109-c353-466b-aeec-3a63bba39746
+hdr * exposure_time
+
+# ╔═╡ cf10e84a-1045-44e6-8361-ff11e6aa56bc
+md"## Saturation"
+
+# ╔═╡ cc143b7f-27a6-4bcb-ba3b-faa54e96642a
+@bind sat Slider(0:0.01:2; default=0.8)
+
+# ╔═╡ de394768-9206-4d1e-88ad-2c216f0467ec
+LG .* hdr ./ L * sat
+
+# ╔═╡ f4582281-6258-4f1a-be7d-ee9273796965
+Ll .* hdr ./ L * sat
+
+# ╔═╡ f8051606-4066-4f20-b1d8-cf579f0f220b
+md"# Setup"
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
+Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
+DSP = "~0.7.6"
+HypertextLiteral = "~0.9.4"
+ImageFiltering = "~0.7.1"
 Images = "~0.25.2"
+Latexify = "~0.15.16"
 MAT = "~0.10.3"
 PlutoUI = "~0.7.39"
 """
@@ -260,6 +753,12 @@ git-tree-sha1 = "1a3f97f907e6dd8983b744d2642651bb162a3f7a"
 uuid = "dc8bdbbb-1ca9-579f-8c36-e416f6a65cce"
 version = "1.0.2"
 
+[[deps.DSP]]
+deps = ["Compat", "FFTW", "IterTools", "LinearAlgebra", "Polynomials", "Random", "Reexport", "SpecialFunctions", "Statistics"]
+git-tree-sha1 = "3fb5d9183b38fdee997151f723da42fb83d1c6f2"
+uuid = "717857b8-e6f2-59f4-9121-6e50c889abd2"
+version = "0.7.6"
+
 [[deps.DataAPI]]
 git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
@@ -330,6 +829,12 @@ deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
+
+[[deps.Formatting]]
+deps = ["Printf"]
+git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
+uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
+version = "0.4.2"
 
 [[deps.Ghostscript_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -571,6 +1076,17 @@ git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
 
+[[deps.LaTeXStrings]]
+git-tree-sha1 = "f2355693d6778a178ade15952b7ac47a4ff97996"
+uuid = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+version = "1.3.0"
+
+[[deps.Latexify]]
+deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
+git-tree-sha1 = "1a43be956d433b5d0321197150c2f94e16c0aaa0"
+uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+version = "0.15.16"
+
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
 uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
@@ -672,6 +1188,12 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+
+[[deps.MutableArithmetics]]
+deps = ["LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "4e675d6e9ec02061800d6cfb695812becbd03cdf"
+uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
+version = "1.0.4"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -777,6 +1299,12 @@ git-tree-sha1 = "8d1f54886b9037091edf146b517989fc4a09efec"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 version = "0.7.39"
 
+[[deps.Polynomials]]
+deps = ["LinearAlgebra", "MutableArithmetics", "RecipesBase"]
+git-tree-sha1 = "d6de04fd2559ecab7e9a683c59dcbc7dbd20581a"
+uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
+version = "3.1.5"
+
 [[deps.Preferences]]
 deps = ["TOML"]
 git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
@@ -823,6 +1351,11 @@ deps = ["Requires"]
 git-tree-sha1 = "dc84268fe0e3335a62e315a3a7cf2afa7178a734"
 uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
 version = "0.4.3"
+
+[[deps.RecipesBase]]
+git-tree-sha1 = "6bf3f380ff52ce0832ddd3a2a7b9538ed1bcca7d"
+uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+version = "1.2.1"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1022,21 +1555,110 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═de381642-2434-4667-8268-660ea5769ec7
-# ╠═a30e0020-6c9f-4abb-85e2-435fb60a9948
-# ╠═3e8771f6-a85b-4920-8231-3a50118fa4b0
-# ╠═b6ee6188-2b46-4056-bb0f-00cbbfbd3a06
-# ╟─ff1ed0d9-008c-4be5-8641-bf0e11afe1e2
-# ╠═2f259531-b963-4aa5-abab-56c9b0948048
-# ╠═c869ffa7-7405-47ee-b0f2-279d1b4ed791
-# ╠═865bfa1a-0d0a-4d05-9290-80213c7d7442
+# ╟─1d63597d-d742-4b21-9e7e-73ec897a5257
+# ╟─c3796886-34a8-4f18-a56b-2efb7c5e7bbd
+# ╟─ade34e30-d3d2-4270-a098-1254b68b2ec5
+# ╟─5d9b90c1-6cb6-45fe-950b-cffa47605273
+# ╟─49bb3830-54aa-4fed-a4ca-b1b75a14783f
+# ╟─a25748af-b2f1-42e2-98e5-ea31b1b2af34
 # ╟─da376133-7b10-425b-838b-fda45e73f7c7
+# ╟─4549d5d7-5ab8-44f3-a6ee-3e85ed9a9f80
+# ╟─ff337e76-7f06-4ebf-a072-254d63c3940e
+# ╟─a30e0020-6c9f-4abb-85e2-435fb60a9948
+# ╠═3e8771f6-a85b-4920-8231-3a50118fa4b0
+# ╠═ff1ed0d9-008c-4be5-8641-bf0e11afe1e2
+# ╟─64522ebb-9cd8-4160-bb13-1e13ca632a6c
+# ╟─8d34f96d-485d-4e09-822f-1c90764f5a21
+# ╟─8d1fe930-ff02-4026-ba2b-be166de9113c
+# ╟─713652dc-d3ed-4ac3-a573-4c9c9ef91b66
+# ╟─2f259531-b963-4aa5-abab-56c9b0948048
+# ╠═b6ee6188-2b46-4056-bb0f-00cbbfbd3a06
+# ╠═c869ffa7-7405-47ee-b0f2-279d1b4ed791
+# ╠═7ef394e8-692b-4753-9248-864a409bafe4
+# ╟─2939e9ea-e111-48ca-a7cd-7b5953086e44
+# ╟─3afa5b5f-c461-42a4-b809-08f9522e7f97
+# ╟─922c5d7a-82fd-48bb-bd81-6fd06005d525
 # ╠═4700f4cc-f354-4c69-87e0-f3a9cb98aa6d
-# ╠═c8ede9d6-2889-4160-b5c2-7357430c03a5
+# ╠═ff5d62a0-9335-46c1-bb75-42b6ff2bfccc
+# ╠═99fb664e-5e8c-4683-9066-6770caa9ec1b
+# ╟─0d8c8896-b40f-4c73-a8c3-7927dc43a2f5
+# ╠═4ed3d93d-3205-43dd-975d-66c62aef55db
+# ╟─533f00c5-bbc8-4dfe-be26-b662dcbacb83
+# ╟─28c428fa-535f-4d89-bbb8-9b86e433e45a
+# ╠═05653128-1d54-46fb-b505-f341b892eb88
+# ╟─cd3f6fdd-41e7-4be2-8a2a-a5ebb92b34d0
+# ╠═cffff739-a1f8-4187-b468-2e3fe978e739
+# ╟─4ebf4bc0-3a53-49e7-8299-01838b5e5aa6
+# ╟─e31b2cd4-4a0d-43cd-92ad-ca689dfff096
 # ╠═1a393ecf-29ca-4fbe-86ba-80c4ad1ca80c
+# ╟─246ccae4-056a-4ab2-bee8-098140acb7ea
+# ╟─24fd0b2d-df8d-4765-929e-364eaa0b3315
+# ╟─f9c72445-d068-4760-9180-17f3e3b95675
+# ╟─583bced0-6ae6-4151-88bd-34520c118c6c
+# ╟─6a2b4f82-0fce-4438-93d2-0c6ff27c61d5
+# ╟─70f93096-667a-4ae9-beb9-3647d50ad30a
+# ╟─f70072e3-20e5-47d7-a827-9a6615e9a68d
+# ╟─97c17a3a-e4fe-46ce-a02c-e7614bd576bf
+# ╠═dfc94077-132f-45e3-8289-f712a0b49578
+# ╟─0e3d6df0-2d93-4ce1-b915-f395c9e02dc8
+# ╟─59f172d0-d1ac-4fa1-ad2b-036accca90d4
+# ╟─dc7952b8-85a8-49b7-ba4e-538d19980068
+# ╟─b061af34-f256-437c-b1fb-88493a18e9cf
+# ╟─c3669784-54c1-4faf-afd0-2d621a16bfa5
+# ╟─1d044142-29a4-45ac-a5ac-8ec861afb4a6
+# ╠═004cf0a8-431e-4a12-a813-104e20f1dfa3
+# ╠═da4c6d98-770c-4cd2-9ba8-e8329834f3e9
+# ╟─2d35e1a0-3940-48f2-a635-30bf917d8bde
+# ╟─a55215fe-67fc-4a0a-9735-e478899af4b3
+# ╟─5f48ab6d-618f-4026-8c74-5d62752b0e30
+# ╠═b66b052e-41de-42b5-b863-d4ab03e603d5
+# ╟─97914b5f-9750-44d5-ac58-2cd9a918ee4b
+# ╟─3bd55dc0-07e3-4f58-97ab-800764eb1aa4
+# ╠═9a0addc0-9b9c-460a-95bf-ae4f7d8cc98e
+# ╟─de691dc2-b1b9-4d7e-a61f-3758f50bd280
+# ╟─dcfdcf4c-03f6-4db4-ac08-cbec22635c31
+# ╠═f3c0fbca-36c4-41dc-8e41-534bbd4314bd
+# ╟─09333c37-c10e-4fbd-beaa-c6193cdbd31a
+# ╟─8d822e59-78d6-448e-b932-8cbe836aa465
+# ╠═3a260b6e-155a-4edc-b819-3b6847b94b24
+# ╟─6f53ae2d-b9ee-4828-929e-26ba0b2bee10
+# ╟─1d5682da-f429-4174-9562-f04485934e97
+# ╠═0e948c1b-b698-4d91-ac41-4bd5a737a886
+# ╠═d886e195-17b5-4770-a7d4-25971f70aea8
+# ╟─233f0460-2d64-4749-944a-760155d98ef8
+# ╟─492f7b4e-8551-47c5-900a-1f5cf5433937
+# ╟─376c5a79-7233-42f7-a607-60d2a1ba7b23
+# ╟─26e028e9-3c9d-4ccc-8ce7-c77e59765485
+# ╠═bf806dc6-27f8-443b-a895-96ef1406bde5
+# ╠═c83d9753-d453-426f-a95b-fbff97fe766a
+# ╠═20f6a1ad-407f-4cd9-aad0-4715a34dfed0
+# ╠═9a53a711-b9cf-4222-9da7-8ffebac06c4f
+# ╠═e1c50d81-cc24-4dc4-9a17-6840bd1bbd71
+# ╠═9708be17-2615-40e2-8bcd-d760ac08ffc8
+# ╟─1b2b355b-c437-4e34-a34c-6e7a992dd807
+# ╟─39ef672d-db51-43a9-8f3e-a7f28587730c
+# ╠═d7ed5033-f37b-4bbb-adfd-0befc227f2a8
+# ╟─e6d06cd9-96d6-4233-ac3e-07a0ce4d4a20
+# ╠═7634afac-40b5-4587-b5d8-9b44d95e0cd1
+# ╟─b8334798-62e0-4ba8-b51d-5e22c6aa54da
+# ╠═9ac25a7e-6fa8-4afd-92a1-6d1f14c5fc3e
+# ╠═6771397b-636d-4fee-b747-47a1eaec1330
+# ╠═f582fd28-3bb6-4880-90df-219883562e4b
+# ╟─4aa8f09b-c9d6-4aa9-86a4-a83526e3a32d
+# ╟─193dca93-9d2d-4fdf-a48b-b409eb7791ec
+# ╟─29445d6e-52ef-40bc-bf9f-5384b63311a5
+# ╟─4f923665-1872-4530-925b-f5eda787bdf5
+# ╟─5fc81c9f-8645-4ed9-9224-b4d11dff3d41
+# ╟─da3721b2-6ab9-46fe-832e-b2fb14a2a8b5
+# ╟─2644c43f-408b-4e6c-84b2-95572ff97733
+# ╟─e9693d09-4c54-434a-9879-7e7103fce8ac
 # ╟─ecdf7ba0-c998-432a-82b7-695836257241
 # ╠═105d0109-c353-466b-aeec-3a63bba39746
-# ╠═97c17a3a-e4fe-46ce-a02c-e7614bd576bf
-# ╠═dfc94077-132f-45e3-8289-f712a0b49578
+# ╟─cf10e84a-1045-44e6-8361-ff11e6aa56bc
+# ╠═cc143b7f-27a6-4bcb-ba3b-faa54e96642a
+# ╠═de394768-9206-4d1e-88ad-2c216f0467ec
+# ╠═f4582281-6258-4f1a-be7d-ee9273796965
+# ╟─f8051606-4066-4f20-b1d8-cf579f0f220b
+# ╠═de381642-2434-4667-8268-660ea5769ec7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
