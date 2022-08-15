@@ -10,11 +10,18 @@ mach-nix = import (builtins.fetchGit {
 }) {};                                                                                                                
 
 python_stuff = mach-nix.mkPython {                                                                                    
-  requirements = "rawpy";                                                                                             
+  # rawpy
+  requirements = ''
+      opencv
+  '';                                                                                             
 }; 
 
 in
 
 mkShell {
   buildInputs = [ python_stuff julia_17-bin ];
+  shellHook = ''
+  export PYTHON=${python_stuff}/bin/python
+  export PYTHONPATH=${python_stuff}/lib/python3.9/site-packages:$PYTHONPATH
+  '';
 }
