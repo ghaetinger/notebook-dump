@@ -4,10 +4,10 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 87a51a42-1b80-11ed-2daf-ed0ffdbba2f1
-using PlutoUI, PyCall, Images, DSP, ImageFiltering, HypertextLiteral
+# ╔═╡ a76d9e50-257e-11ed-1351-614a331a5648
+using FFTW, Images, TestImages, FastTransforms, Statistics, HypertextLiteral, PlutoUI
 
-# ╔═╡ 3ac2397f-5833-4a8b-a0c9-d7a1fb220dcd
+# ╔═╡ f185414f-3fe0-42d3-acfd-db0db87f912e
 @htl("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,429 +39,312 @@ using PlutoUI, PyCall, Images, DSP, ImageFiltering, HypertextLiteral
 </style>
 """)
 
-# ╔═╡ cc5d2b6a-df56-4323-b150-e38f4901ed61
+# ╔═╡ a3973ab8-ea68-44bc-9e69-aa112b01969e
 @htl("""
 <div style="border: solid black; padding: 10px;">
-<h1 style="text-align: center">Assignment 3: Simple Image Segmentation and Compositing</h1>
+<h1 style="text-align: center">Assignment 4: Discrete Fourier Transform</h1>
 <h4 style="text-align: center">Guilherme Gomes Haetinger - 00274702</h4>
 </div>
 """)
 
-# ╔═╡ cb1acf84-f567-4ad3-b1e3-834270cba060
+# ╔═╡ 8d9cbab4-55c0-4c00-b160-56663889093f
 md"""
 **Proposal**:
-*The goal of this assignment is to familiarize the students with notions of image segmentation and image compositing. For this assignment, you will play with image segmentation using the Intelligent Scissors and the GrabCut algorithms, and with the use of Laplacian sequences and alpha compositing.*
+*The goal of this assignment is to allow you to explore and verify several of the properties of the Discrete Fourier Transform (DFT) and its inverse that have been presented in class. The following task can be easily implemented in MATLAB, but you can use any library of your prefence to compute the DFT and its inverse.*
 """
 
-# ╔═╡ 8c852f74-80b5-4040-b253-7fa0a670e52a
-md"# Image Segmentation"
-
-# ╔═╡ d86fadda-440b-4d21-a3b0-7e3843da0df5
-md"## Inteligent Scissors"
-
-# ╔═╡ 78dec682-8a8c-4d71-b5b5-c7cc3ed75844
-md""" 
-Gimp's inteligent scissor is very intuitive. I applied it to these two Grêmio legends and here are the results:
-"""
-
-# ╔═╡ bf48bdc1-c394-4a80-9216-da12197a0fc3
-PlutoUI.ExperimentalLayout.vbox([
-	PlutoUI.ExperimentalLayout.hbox([
-		load("./res/Luan.jpg"),
-		load("./res/luan-only.jpg"),
-		load("./res/binter.jpg")
-	]),
-	PlutoUI.ExperimentalLayout.hbox([
-		load("./res/showza.jpg"),
-		load("./res/showza-only.jpg"),
-		load("./res/pp.jpg")
-	])
-], class="threecols", style=Dict("gap" => "1em", "text-align" => "center"  ))
-
-
-# ╔═╡ 1baabb42-763c-47d5-b28f-ff1211c6b53f
-md"## Scribbles"
-
-# ╔═╡ baca2f37-0302-46ee-867d-4142c0dc660f
+# ╔═╡ d02c57ca-833f-46d4-9b52-40a4e19c04e4
 md"""
-Using Scribbles to segment a picture is also straightforward. Using my python script *"create_segment.py"* which specializes a mask by creating a rectangle bound and checking pixel similarities, and then uses a scribble I drew to introduce user based foreground/background probability and generate better results.
+_For this assignment, I'll be using Julia and its *FFTW* library!_
 """
 
-# ╔═╡ 6ec4a969-a7ad-4374-b539-a46be3498492
-@pyinclude("./create_segment.py")
+# ╔═╡ d2ce8798-d051-4a62-a86a-683ce88ab185
+md"# Real and Imaginary components"
 
-# ╔═╡ 45dc971a-96c0-4666-9903-47ef3331c9a3
-md"**Result of rectangle bound segmentation**"
-
-# ╔═╡ 63927b63-8449-4446-ba9d-9ca5677e603d
-load("./res/out-luan-rect5.jpg")
-
-# ╔═╡ 6b4b0d20-01dc-4c65-8dfb-bb1a19f0f669
-md"**My scribbles**"
-
-# ╔═╡ 1980995a-30e1-4361-989a-f492341b2170
-load("./res/newluanmask.jpeg")
-
-# ╔═╡ b20c49e5-6683-4c84-ba37-131dde8cae62
-md"**Result of scribble results**"
-
-# ╔═╡ b085d890-3ce8-43f6-9fa9-942fb043fb84
-load("./res/out-luan5.jpg")
-
-# ╔═╡ aa4d3f8a-b3d7-4f53-844a-1a3e55081637
-iters = [1, 5, 10, 15, 20]
-
-# ╔═╡ ad200eed-620a-4f12-ac2b-bf4ff3b0df0d
-md"""
-One of the parameters we could work with, was number of iterations on the mask approximation process. More iterations equals more precision. Below, I display (left) the rectangle segmentation result and (right) the scribble process result. The results increase number of iterations from top to bottom $[1, 5, 10, 15, 20]$.
-"""
-
-# ╔═╡ 58593f12-386f-46a9-9b60-609ca14c1668
- PlutoUI.ExperimentalLayout.vbox([
-	 PlutoUI.ExperimentalLayout.hbox([
-		 load("./res/out-luan-rect$(i).jpg"),
-		 load("./res/out-luan$(i).jpg")
-	 ]) 
-		 for i ∈ iters
- ], class="twocols")
-
-# ╔═╡ 60418d1a-2e7d-4b5b-b653-ecbf99a35b52
-md"""
-From these results, we don't see much of an improvement of result with the increased number of iterations. Zooming in, we might be able to see the edges of the shirt become more smooth though.
-"""
-
-# ╔═╡ f8ad71b9-2640-40ca-a336-0a8fbcd8d7e2
-md"# Laplacian Compositing"
-
-# ╔═╡ b7cb9859-3077-4f0a-b7e4-b3508d80d1c7
-md"## Gaussian Sequences"
-
-# ╔═╡ 79120528-87aa-408d-aac4-a06afbf36956
-apple = load("./res/Apple.png");
-
-# ╔═╡ cc11833e-6dd2-4bb6-874d-18dc2a64df4b
-orange = load("./res/Orange.png");
-
-# ╔═╡ dcb7a836-8795-4d58-bb54-1b91102a0b6b
-PlutoUI.ExperimentalLayout.hbox([apple, orange], class="twocols")
-
-# ╔═╡ 3b06a94f-9fa6-4529-b947-5d60294ed888
-md"""
-Our objective in this session is to create the proper image sequences to build a mixed picture of both images above.
-
-To start this off, we create a function that generates a *Gaussian Sequence* for any given image. For this, aside of the image, I set two different parameters:
-
-- $Δσ$ Step to which the σ used for the *Gaussian filters* increases over the image sequence;
-- $\text{seq\_size}$ Number of filters/images generated for the sequence;
-
-Both of these alter how frequencies that are filtered out on the image sequence.
-"""
-
-# ╔═╡ 1698fb76-bd3c-42d6-a541-bb7f1a96811c
-function DSP.conv(M, I::Matrix{ColorTypes.RGB{FixedPointNumbers.N0f8}})
-	channels = channelview(I)
-	R = channels[1, :, :]
-	G = channels[2, :, :]
-	B = channels[3, :, :]
-	R_ = conv(M, R)
-	G_ = conv(M, G)
-	B_ = conv(M, B)
-	colorview(RGB, R_, G_, B_)
-end
-
-# ╔═╡ 535d10ff-921d-4fe5-a8cc-58ea42641248
-function DSP.conv(M, I::Matrix{ColorTypes.Gray{FixedPointNumbers.N0f8}})
-	I_F = Float64.(I)
-	I_ = conv(M, I_F)
-	return Gray{FixedPointNumbers.N0f8}.(I_)
-end
-
-# ╔═╡ 27a2c607-0938-43c0-98c0-02d6fb6fa996
-function make_gaussian_sequence(I, Δσ, seq_size)
-	filters = [Kernel.gaussian([s, s], [51, 51]) for s ∈ collect(Δσ:Δσ:(seq_size-1)*Δσ)];
-	return vcat([I], [conv(collect(filters[i]), I)[26:end-25, 26:end-25] for i ∈ 1:length(filters)])
-end
-
-# ╔═╡ a31b097d-7763-400c-b7a1-2df9607f98d6
-md"Below, we have the resulting *Gaussian Sequences* for both images using $Δσ = 2, \text{seq\_size} = 5$" 
-
-# ╔═╡ 1e43e851-a63c-4778-a180-9c463e044d50
-make_gaussian_sequence(apple, 2, 5)
-
-# ╔═╡ 652ab662-ef89-422d-9cf2-28d71063d1b3
-make_gaussian_sequence(orange, 2, 5)
-
-# ╔═╡ 021b7491-d01a-45fe-94ca-6cf55768d509
-md"## Mask"
-
-# ╔═╡ 7f231b63-22d2-46ce-ae36-5d3b75df3bdb
-md"Now that we have the images' *Gaussian Sequences*, we're only missing one: the mask's. First, we define a very simple mask and then apply the same function:" 
-
-# ╔═╡ 4473310c-7b3e-47a3-8367-135f4ee6bc05
-mask = let
-	mask = ones(size(apple))
-	mask[:, Int64(512/2):end] .= 0
-	mask .|> Gray{FixedPointNumbers.N0f8}
-end
-
-# ╔═╡ 4cb2e186-3e56-4014-a36b-d722753a6820
-make_gaussian_sequence(mask, 2, 5)
-
-# ╔═╡ 63085d91-9407-442f-9106-58a5fc6a62b1
-md"## Laplacian Sequences"
-
-# ╔═╡ 8b723f2a-01c0-4d95-98d8-6587104399f9
-md"""
-Generating a *Laplacian Sequence* is simple once we have the respective *Gaussian Sequences* layed out. To do so, we simply copy the sequence and do the following operation until $i = |G_s|-1$:
-
-$L_s[i] = L_s[i] - G_s[i+1]$
-
-where $L_s$ means *Laplacian Sequence* and $G_s$ means *Gaussian Sequence*.
-"""
-
-# ╔═╡ 283ec60a-a925-431d-be49-f36a247612e9
-function make_laplacian_sequence(gaussian_sequence)
-	laplacian = copy(gaussian_sequence)
-	for (i, gauss) ∈ enumerate(gaussian_sequence[2:end])
-		laplacian[i] = laplacian[i] .- gauss
-	end
-	return laplacian
-end
-
-# ╔═╡ 8f298bbd-b2f8-4d11-96fc-cb5d0c0793f0
-md"Example:"
-
-# ╔═╡ b2627290-f641-4bf1-81a4-fd60acd698f6
-make_laplacian_sequence(make_gaussian_sequence(apple, 2, 5))
-
-# ╔═╡ 3e92e715-b9c4-4420-817e-385a9f47b5ae
-make_laplacian_sequence(make_gaussian_sequence(apple, 2, 5))[1]
-
-# ╔═╡ af49fc76-13bb-486c-837d-2ce9ce753dcc
-md"""
-We see that the sharp images are very dark because the smooth color transitions are filtered out! Zooming in like in the image above, we can see the high frequencies of the image.
-"""
-
-# ╔═╡ 86d61a95-c118-44e3-a35d-d1cab327bbd2
-md"## Blending" 
-
-# ╔═╡ ef6bcec6-3764-4103-976b-ed23870fa4cd
-md"""
-Finally, we can blend two sequences using a mask by following this equation:
-
-$\sum^{N}_{i=1} M_i * A_i + (1 - M_i) * B_i$
-
-which is what we do in the followint function.
-"""
-
-# ╔═╡ d278c9c5-0e2c-4117-be32-4deaaf7f62dc
-function blend_two_lapl_sequences(A, B, M)
-	M_inv = [1 .- m for m ∈ M]
-	return sum([
-		M[i] .* A[i] + M_inv[i] .* B[i]
-		for i ∈ (1:length(A))
-	])
-end
-
-# ╔═╡ 14cf1de6-8225-47ee-a54f-fce2aa9b15fe
-function join_images(A, B, M, Δσ, seq_size)
-	A_lapl = make_laplacian_sequence(make_gaussian_sequence(A, Δσ, seq_size))
-	B_lapl = make_laplacian_sequence(make_gaussian_sequence(B, Δσ, seq_size))
-	M_gauss = make_gaussian_sequence(M .|> Gray, Δσ, seq_size) .|> (m -> Float64.(m))
-	blend_two_lapl_sequences(A_lapl, B_lapl, M_gauss)
-end
-
-# ╔═╡ cc7a5c65-497d-4d9c-b2a3-2d3317528b5c
-md"Below, I explore changing the variables to understand what would be the best combination."
-
-# ╔═╡ 9423537a-31e1-4966-b11b-9ca8deef5c73
-PlutoUI.ExperimentalLayout.vbox([
-	PlutoUI.ExperimentalLayout.hbox([
-		join_images(apple, orange, mask, 2, 1),
-		join_images(apple, orange, mask, 2, 5),
-		join_images(apple, orange, mask, 2, 10),
-		join_images(apple, orange, mask, 2, 100),
-	]),
-    md"$Δσ = 2, \text{sequence size} = [1, 5, 10, 100], \text{respecitvely}$",
-	PlutoUI.ExperimentalLayout.hbox([
-		join_images(apple, orange, mask, 1, 10),
-		join_images(apple, orange, mask, 2, 10),
-		join_images(apple, orange, mask, 5, 10),
-		join_images(apple, orange, mask, 10, 10),
-	]),
-    md"$\text{sequence size} = 10, Δσ = [1, 2, 5, 10], \text{respecitvely}$"
-], class="fourcols", style=Dict("gap" => "1em", "text-align" => "center"  ))
-
-
-# ╔═╡ 700e2abe-3c77-4046-b14e-5149db3fcf80
-md"""
-It seems very clear that a larger sequence size and Δσ generate better results. However, using $\text{seq\_size} = 100$ takes around *10s* to run, which I don't think is a good amount of time to wait. Viewing the images above, I thought the best result was to use $Δσ = 5, \text{seq\_size} = 10$, the extra examples proved me wrong and showed the best results used $Δσ = 2, \text{seq\_size} = 10$.
-"""
-
-# ╔═╡ 895f4aa3-c4d6-4e58-978a-261995983fc0
-md"## Other examples"
-
-# ╔═╡ 5360c45f-88b9-4193-ade8-469a9d87cbb2
-md"**First example**: Tom Hank's freaky hands"
-
-# ╔═╡ 0c6d5f87-773e-4d58-a972-1199981855a0
-begin
-	hank = load("./res/hanks.jpg")
-	hankeye = load("./res/hanks_eye_aligned.jpg")
-	hankmask = load("./res/hanks_eye_mask.jpg") .|> Gray
-	[hank, hankeye, hankmask]
-end
-
-# ╔═╡ 61e8ed0c-ae56-448f-b8b7-559a96c6300f
-join_images(hankeye, hank, hankmask, 2, 10)
-
-# ╔═╡ c33f4c84-d965-4beb-a30f-4831b1d4c18d
-md"**Second Example**: Pizza or Books? That's the question..."
-
-# ╔═╡ 18bf7a1c-8b8b-49ae-b2f8-88b5034c7e57
-begin
-	berkeley = load("./res/sather.jpg")
-	pisa = load("./res/pisa_aligned.jpg")
-	pisamask = load("./res/pisa_aligned_mask.jpg") .|> Gray
-	[berkeley, pisa, pisamask]
-end
-
-# ╔═╡ 1045e45f-1d38-40b6-b914-6eaff3d04d3e
-join_images(pisa, berkeley, pisamask, 2, 10)
-
-# ╔═╡ af942307-3cd0-4c22-8dd8-a8fd3ac739c0
-md"# Alpha Compositing"
-
-# ╔═╡ 8a543f5c-610b-47e6-8cb7-511a2d593317
-md"""
-Starting off the Alpha Compositing section, I need to load the three images and transform the alpha image into a *floating-point* matrix.
-"""
-
-# ╔═╡ ae324f81-719f-4fd3-b627-1341a550e6aa
-background = load("./res/background.png");
-
-# ╔═╡ bcc6de80-a742-4d0e-936c-eba49a71a4fe
-alpha = load("./res/GT04_alpha.png");
-
-# ╔═╡ 94d24f8e-5b36-497a-8513-19af9c01e885
-foreground = load("./res/GT04.png");
-
-# ╔═╡ 97002a41-ce6b-4e93-a863-682173ee85ea
-PlutoUI.ExperimentalLayout.hbox([foreground, alpha, background], class="threecols")
-
-# ╔═╡ 51048d6b-7942-4d7e-b320-8cf181c749b8
-alpha_float = alpha .|> Gray .|> Float64;
-
-# ╔═╡ c6e925a3-6463-415b-8566-5d7354185b25
+# ╔═╡ 2a13e4cd-3b74-4411-93b9-a13c43b5aef9
 @htl("""
 <style>
-.twocols img {
-   width: 50%;
+div.big img {
+  max-width: unset !important;
+  max-height: unset !important;
+  width: 250px;
+  height: 250px;
 }
-.threecols img {
-   width: 30%;
-}
-.fourcols img {
-   width: 25%;
+
+
+img {
+  max-width: unset !important;
+  max-height: unset !important;
+  width: 150px;
+  height: 150px;
 }
 </style>
 """)
 
-# ╔═╡ 4e36a48c-a80a-4380-86f8-3f0b24eb9698
+# ╔═╡ 25d60b5f-c777-4dfc-bc8b-5cb63c815c3e
+cameraman = testimage("cameraman")
+
+# ╔═╡ 74d1cb19-722c-4318-a462-50e354213ad5
 md"""
-After being able to run the composting equation and putting our little friends into the background set for the assignment, they went for a few adventures:
-- Went to eat some oranges in Pelotas, RS
-- Played against Inter in Gauchão and beat them by 10x0, each of them scoring a hat-trick
-- Decided to go study at UC Berkely, where they graduated in EECS with honors 
+To complete the first assignment, we must separate the real and imaginary components of the image by using the fourier transform, filtering the real/imaginary components and, then, reconstructing the image with an inverse fourier transform.
+
+We do this in the cell below (`|>` is a pipe operator).
 """
 
-# ╔═╡ 366d1de3-d83c-45fa-9546-978829c424c9
-PlutoUI.ExperimentalLayout.vbox([
-	PlutoUI.ExperimentalLayout.hbox([
-		alpha_float .* foreground + (1 .- alpha_float) .* background,
-		alpha_float .* foreground + (1 .- alpha_float) .* imresize(orange, size(background))
-	]),
-	PlutoUI.ExperimentalLayout.hbox([
-		alpha_float .* foreground + (1 .- alpha_float) .* imresize(load("./res/Luan.jpg"), size(background)),
-		alpha_float .* foreground + (1 .- alpha_float) .* imresize(berkeley, size(background))
-	])
-], class="twocols")
-
-# ╔═╡ 2d57a0fc-7a18-474c-85ef-5dbf217ac62b
-alpha_float .* foreground + (1 .- alpha_float) .* background
-
-# ╔═╡ 0819a435-9f3c-40b2-af29-082f4aed35f6
+# ╔═╡ 004b7c77-10f8-4c17-879f-5d764fef5b04
 md"""
-Shown in the codeblock above, we see that Julia makes it very easy for us to use the compositing equation. 
-
-Zooming in on the picure, however, we see there are a few artifacts on the hair of our two little friends, e. g. the left side of the red hair shows tones of green, which are clear leftovers of the original image, where they were placed in a green field. This has to be because of how hard it is to define the opacity of these very small details in the image.
+As we can see, both images seem to have a mirrored copy of itself layed on top of the originally oriented image. This can be explained by the complex conjugates in this DFT decomposition. Things get mirrored because cor every `sin/cos` pair, there is another pair with the same amplitude but different phase! The dark parts of the immaginary image are due to negative values that work towards compensating values in the real image to result in the `cameraman` image we see at the top of the report.
 """
 
-# ╔═╡ c45bd3e9-4166-451c-bd74-93676a32a07e
-md"## Extra Picture"
+# ╔═╡ f94cbcf1-c0d8-4d2c-8006-39d041b6ec97
+md"# Image reconstruction"
 
-# ╔═╡ 82fb768d-8a8d-4f09-8f18-582ff474fb00
-md"Below, we have a picture of me and Mao Tse Tung at the SF MOMA. It looks very boring and so our colorful buddies want to fix it by being a part of it!" 
+# ╔═╡ 1331d25d-92f7-4019-918d-69728aa2d5a5
+md"Below, I replicate the small image provided by the teacher using the `imresize` method."
 
-# ╔═╡ c38c09d7-8fb8-4379-ab27-b025803f250b
-mao = load("./res/mao.JPG")
+# ╔═╡ db7f9a05-7396-40d6-8c2c-86cd4a0089b6
+small_cameraman = imresize(cameraman, (100, 100))
 
-# ╔═╡ a33126cb-f331-492b-bb4a-a439e86e2968
+# ╔═╡ 92b82cce-0048-476e-be26-077301b0f726
 md"""
-To do so, we need to do the following:
+To manually compute `DFT` and `IDFT`, I need to replicate the following formuli:
 
-1. Create a blank canvas with the resolution of my picture;
-2. Scale and rotate the foreground image;
-3. Fill a set of coordinates with the foreground pictures;
-4. Repeat 2. and 3. for the alpha mask image;
+- **DFT**: $F[u, v] = \sum^{M}_{x=0}\sum^{N}_{y=0}f(x, y)*e^{-2 \pi i (\frac{u*x}{M} * \frac{v*y}{N})}$
+- **IDFT**: $f(x, y) = \sum^{M}_{u=0}\sum^{N}_{v=0}F[u, v]*e^{2 \pi i (\frac{u*x}{M}* \frac{v*y}{N})}$
 
+This can be quite easy us ing for loops, like on the two functions below:
 """
 
-# ╔═╡ ae1d577c-920b-484c-9424-2eaa983e2749
-(newforeground, newalpha) = let
-	newforeground = zeros(RGB{N0f8}, size(mao))
-	scaledforeground = imresize(foreground, floor.(Int64, size(foreground) .* 3.3))
-	rotated_img = imrotate(scaledforeground, -π/100)
-	(height, width) = size(rotated_img)
-	newforeground[1500:1499+height, 800:799+width] = rotated_img
+# ╔═╡ eca06de5-abac-45f9-8d0a-682e664b4e2f
+function DFT(f)
+	f = Float64.(f)
+	(N, M) = size(f)
+	F = zeros(ComplexF64, (N, M))
+	for u ∈ 1:M
+		for v ∈ 1:N
+			for x ∈ 1:M
+				for y ∈ 1:N
+					uv = (((u-1)*(x-1)/M)+((v-1)*(y-1))/N)
+ 					F[u,v] += f[x,y] * exp(-1im*2*pi*uv)
+				end
+			end
+		end
+	end
+	return F
+end
+
+# ╔═╡ 967a1632-882c-46ed-a014-573de3296b7d
+function IDFT(F)
+	(N, M) = size(F)
+	f = zeros(ComplexF64, (N, M))
+	for x ∈ 1:M
+		for y ∈ 1:N
+			for u ∈ 1:M
+				for v ∈ 1:N
+				uv = (((u-1)*(x-1)/M)+((v-1)*(y-1))/N)
+    			f[x,y] += F[u,v] * exp(1im*2*pi*uv)
+				end
+			end
+		end
+	end
+	return 1/(M*N) * f
+end
+
+# ╔═╡ ad57564d-6e88-4c70-948c-d04b783fa46b
+md"""
+Below, we see the requested items (a, b, c) and a picture with manual DFT and manual IDFT applied, respectively. They all look pretty much the same.
+"""
+
+# ╔═╡ d0ebd0c1-b5bb-42e3-a18e-fafd9463b574
+md"# DC Component"
+
+# ╔═╡ 7cd86e73-9873-4b48-aedd-65fc112152c6
+md"""
+Below, we see the two requested results:
+
+- a DFT-reconstructed image after setting DC (`F[1, 1]` in Julia) to 0
+- the image after removing the mean intensity from all pixels. 
+
+They reslut in the same dark image as they do the same thing. Since the DC term holds the sum of all pixel values, removing $MN * |I|$, where $MN$ is the number of pixels and $|I|$ is the mean value of the image, results in the removal of the entirety of DC's value.
+"""
+
+# ╔═╡ 84eeb05a-3bab-40bc-94e1-7ca704f519d4
+md"# Fourier Spectrum Shift"
+
+# ╔═╡ 957144a5-8956-4ff4-8370-c300076d6e90
+md"""
+To depict the fourier spectrum, we need to properly set up the image. This is, the initial DFT representation is somewhat crazy all-around and there isn't much we can see and thus we need to smooth things out as well as remove negative values that wouldn't be rasterized here in Julia. We must do the `abs` value and apply a `log` function. Once that's done, we normalize the values. All is done in the following function: 
+"""
+
+# ╔═╡ 52ae6fcc-e172-4410-84ab-9e97d38f763f
+function fourier_spectrum(dft)
+	a = log.(abs.(dft) .+ 1)
+	(l, u) = extrema(a)
+	(a .- l) ./ (u - l)
+end
+
+# ╔═╡ 7a34c88e-2b0c-40c7-8ac1-2e8ddaa2e938
+md"""
+Below, we see the fourier spectrum of the cameraman image and the shifted spectrum (with the DC component in the middle). This holds all kinds of informations and can even be used to understand if an image is rotated/crooked.
+"""
+
+# ╔═╡ eccc0724-f28c-432a-a133-cad5ef492cf0
+md"""
+We can also see below that applying $-1^{x + y}$ to an image results in the same as reconstructing the image after shifting the fourier spectrum! It produces a darker image because there are negative values spreaded uniformly throughout the image that map to black in the rasterization.
+"""
+
+# ╔═╡ f6ff586e-18de-439e-9ca7-69806b584314
+md"""
+Shifting the image and retrieving the spectrum results in the same (or very similar) spectrum of the non-shifted image. that's it because the spectrum is based on magnitudes and phases instead of positional arguments.
+"""
+
+# ╔═╡ 1473fb8f-714a-4c0f-acef-62ef9c9ae6c7
+md"# Phase + Amplitude"
+
+# ╔═╡ 9a379887-8869-48f1-a639-db995347ec57
+md"""
+In Julia, retrieving the amplitude and phase spectra is quite easy. The first one, we just need to retrieve the image by the absolute value of the fourier spectrum. The last one, we need to use the `angle` function provided by `FFTW.jl` and perform the exponential operation on the fourier spectrum. We see that the latter provides us with a image with good delimitations to where objects are present.
+"""
+
+# ╔═╡ 23fe230a-49de-49e3-b6ac-fa0792ad48a3
+md"""
+# Conclusions
+
+It's fascinating to see how much information there is to an image. Although very complex, the fourier transform and the concepts it carries along are fundamental to many theories and work that has been done in the field of image processing. This assignment has helped me understand how to manipulate some of the properties seen in class and was essntial to my understanding of the topic.
+"""
+
+# ╔═╡ 30681ce3-ce10-42b0-99aa-ee0912a99956
+@htl("""
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+""")
+
+# ╔═╡ 4a7d7c11-4075-44bf-8e53-10761c415fff
+md"# Setup"
+
+# ╔═╡ 68703d02-ebda-41bd-ba59-52ae25a58595
+FFTW.fft(image::Matrix{<:Gray}) = fft(Float64.(image))
+
+# ╔═╡ fd5b8519-7a90-4445-8e63-dc2ae2554ad7
+let
+	dft_cam = fft(cameraman)
+	simple_spectrum = fourier_spectrum(dft_cam) .|> Gray
+	shifted_spectrum = fourier_spectrum(fftshift(dft_cam)) .|> Gray
+	[simple_spectrum, shifted_spectrum]
+end
+
+# ╔═╡ 0adb8c67-2db2-4227-9a0b-b8f42598a5b4
+let
+	shifted_image = fftshift(cameraman)
+	reconstructed_shifted = 
+		fourier_spectrum(fft(Float64.(shifted_image))) .|> Gray
+	[shifted_image, reconstructed_shifted]
+end
+
+# ╔═╡ a6eece5d-adf6-4be5-acf2-5b5cc4f8696f
+FFTW.ifft(image::Matrix{<:Gray}) = ifft(Float64.(image))
+
+# ╔═╡ ca7c5b96-9f16-4fd8-b439-c8a5ef26561f
+reals(c::Matrix{<:Complex}) = (x -> x.re).(c)
+
+# ╔═╡ 54022bed-5490-4d27-b379-4dae999ae9c5
+let
+	a = reals(IDFT(fft(small_cameraman)))           .|> Gray
+	b = reals(ifft(fft(small_cameraman)))           .|> Gray
+	c = reals(ifft(DFT(Float64.(small_cameraman)))) .|> Gray
+	manual = reals(IDFT(DFT(small_cameraman)))      .|> Gray
+	[a, b, c, manual]
+end
+
+# ╔═╡ 0a5b5027-6f97-4deb-a6f8-8535d6e9349b
+let
+	dft_cam = fft(cameraman)
+	dft_cam[1, 1] = 0
+	zero_dc = reals(ifft(dft_cam)) .|> Gray
 	
-	newalpha = zeros(RGB{N0f8}, size(mao))
-	scaledalpha = imresize(alpha, floor.(Int64, size(alpha) .* 3.3))
-	rotated_alpha = imrotate(scaledalpha, -π/100)
-	newalpha[1500:1499+height, 800:799+width] = rotated_alpha
-	(newforeground, newalpha .|> Gray .|> Float64)
+	avg_intensity = mean(cameraman)
+	averaged_img = cameraman .- avg_intensity
+
+	[zero_dc, averaged_img]
+end
+
+# ╔═╡ 6065f983-04d8-4910-a5c6-c2b766b6fd3a
+(shifted_reconstruction, g) = let
+	dft_cam = fft(cameraman)
+	shifted_reconstruction = ifft(fftshift(dft_cam)) |> reals .|> Gray
+	(N, M) = size(cameraman)
+	g = zeros(Float64, N, M)
+	for x ∈ 1:M
+		for y ∈ 1:N
+			g[x, y] = ((-1)^(x-1 + y-1))*(cameraman[x, y])
+		end
+	end
+	g = g .|> Gray
+	(shifted_reconstruction, g)
 end;
 
-# ╔═╡ 58110a88-0dc0-41e7-a6d5-9192588f0a54
-md"Finally, we get the following, much more fun, image:"
+# ╔═╡ 201c469c-e7f6-4de3-81cc-7f47c3fc86fa
+PlutoUI.ExperimentalLayout.hbox([shifted_reconstruction, g], class="big", style=Dict(
+	"gap" => "4px",
+	"align-items" => "center",
+	"justify-content" => "center"
+))
 
-# ╔═╡ 12deb10d-8f64-4372-9787-e7fd548704bf
-newalpha .* newforeground + (1 .- newalpha) .* mao
+# ╔═╡ 5ef02319-4bc2-40f7-8918-ca2d79e0d1cf
+(amplitude, normalized_phases) = let
+	dft_cam = fft(cameraman)
+	amplitude = ifft(abs.(dft_cam)) |> reals .|> Gray
 
-# ╔═╡ 80a234ae-fcfc-42bd-b9fc-74931c127f0d
-md"""
-# Conclusion
+	phases = ifft(exp.(im .* angle.(dft_cam))) |> reals
+	
+	(l, u) = extrema(phases)
+	normalized_phases = (phases .- l) ./ (u - l) .|> Gray
+	
+	(amplitude, normalized_phases)
+end;
 
-This was a very fun assignment which I didn't have nearly as much time to do as the past ones. Nonetheless, it was very simple and so I didn't need as much time. I think the pictures that were achieved by this look absolutely great and this shows how simple algorithms can be very useful and generate outstanding results. Needless to say I learnt a lot.
-"""
+# ╔═╡ a331521f-4d2e-46d8-a352-98dfe0efd947
+PlutoUI.ExperimentalLayout.hbox([amplitude, normalized_phases], class="big", style=Dict(
+	"gap" => "4px",
+	"align-items" => "center",
+	"justify-content" => "center"
+))
+
+# ╔═╡ d406e665-fe16-4b87-afc7-1e7b80db748e
+imaginaries(c::Matrix{<:Complex}) = (x -> x.im).(c)
+
+# ╔═╡ ba029766-7dfd-4300-819c-69e5895a78b5
+(real, imaginary) = let
+	reconstructed = 
+	real = cameraman |> fft |> reals |> ifft |> reals .|> Gray
+	imaginary = cameraman |> fft |> imaginaries |> ifft |> imaginaries .|> Gray
+	(real, imaginary)
+end;
+
+# ╔═╡ 7c977cea-e2ca-496e-8143-160507198a10
+PlutoUI.ExperimentalLayout.hbox([real, imaginary], class="big", style=Dict(
+	"gap" => "4px",
+	"align-items" => "center",
+	"justify-content" => "center"
+))
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+FastTransforms = "057dd010-8810-581a-b7be-e3fc3b93f78c"
 HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TestImages = "5e47fb64-e119-507b-a336-dd2b206d9990"
 
 [compat]
-DSP = "~0.7.6"
+FFTW = "~1.5.0"
+FastTransforms = "~0.14.5"
 HypertextLiteral = "~0.9.4"
-ImageFiltering = "~0.7.1"
 Images = "~0.25.2"
 PlutoUI = "~0.7.39"
-PyCall = "~1.93.1"
+TestImages = "~1.7.0"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -571,9 +454,9 @@ version = "0.12.8"
 
 [[deps.Compat]]
 deps = ["Dates", "LinearAlgebra", "UUIDs"]
-git-tree-sha1 = "924cdca592bc16f14d2f7006754a621735280b74"
+git-tree-sha1 = "5856d3031cdb1f3b2b6340dfdc66b6d9a149a374"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.1.0"
+version = "4.2.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -583,12 +466,6 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 git-tree-sha1 = "52cb3ec90e8a8bea0e62e275ba577ad0f74821f7"
 uuid = "ed09eef8-17a6-5b46-8889-db040fac31e3"
 version = "0.3.2"
-
-[[deps.Conda]]
-deps = ["Downloads", "JSON", "VersionParsing"]
-git-tree-sha1 = "6e47d11ea2776bc5627421d59cdcc1296c058071"
-uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
-version = "1.7.0"
 
 [[deps.CoordinateTransformations]]
 deps = ["LinearAlgebra", "StaticArrays"]
@@ -603,9 +480,9 @@ version = "1.0.2"
 
 [[deps.DSP]]
 deps = ["Compat", "FFTW", "IterTools", "LinearAlgebra", "Polynomials", "Random", "Reexport", "SpecialFunctions", "Statistics"]
-git-tree-sha1 = "3fb5d9183b38fdee997151f723da42fb83d1c6f2"
+git-tree-sha1 = "4ba2a190a9d05a36e8c26182eb1ba06cd12c1051"
 uuid = "717857b8-e6f2-59f4-9121-6e50c889abd2"
-version = "0.7.6"
+version = "0.7.7"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
@@ -666,6 +543,24 @@ git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
 version = "3.3.10+0"
 
+[[deps.FastGaussQuadrature]]
+deps = ["LinearAlgebra", "SpecialFunctions", "StaticArrays"]
+git-tree-sha1 = "58d83dd5a78a36205bdfddb82b1bb67682e64487"
+uuid = "442a2c76-b920-505d-bb47-c5924d526838"
+version = "0.4.9"
+
+[[deps.FastTransforms]]
+deps = ["AbstractFFTs", "FFTW", "FastGaussQuadrature", "FastTransforms_jll", "FillArrays", "GenericFFT", "Libdl", "LinearAlgebra", "Reexport", "SpecialFunctions", "Test", "ToeplitzMatrices"]
+git-tree-sha1 = "20e5e0c59b47358e22fbcd77d1a0bcd0aba7680d"
+uuid = "057dd010-8810-581a-b7be-e3fc3b93f78c"
+version = "0.14.5"
+
+[[deps.FastTransforms_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "FFTW_jll", "JLLWrappers", "LLVMOpenMP_jll", "Libdl", "MPFR_jll", "OpenBLAS_jll", "Pkg"]
+git-tree-sha1 = "91b8df45d151a47e66cf839270b788c84c2ac71e"
+uuid = "34b6f7d7-08f9-5794-9e10-3819e4c7e49a"
+version = "0.6.0+0"
+
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "94f5101b96d2d968ace56f7f2db19d0a5f592e28"
@@ -675,11 +570,27 @@ version = "1.15.0"
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
+[[deps.FillArrays]]
+deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
+git-tree-sha1 = "246621d23d1f43e3b9c368bf3b72b2331a27c286"
+uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
+version = "0.13.2"
+
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
+
+[[deps.GMP_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "781609d7-10c4-51f6-84f2-b8444358ff6d"
+
+[[deps.GenericFFT]]
+deps = ["AbstractFFTs", "FFTW", "LinearAlgebra", "Reexport", "Test"]
+git-tree-sha1 = "aa82ad4d96019b883a17953707155fab87df5410"
+uuid = "a8297547-1b15-4a5a-a998-a2ac5f1cef28"
+version = "0.1.1"
 
 [[deps.Ghostscript_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -695,9 +606,9 @@ version = "1.1.2"
 
 [[deps.Graphs]]
 deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
-git-tree-sha1 = "db5c7e27c0d46fd824d470a3c32a4fc6c935fa96"
+git-tree-sha1 = "a6d30bdc378d340912f48abf01281aab68c0dec8"
 uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
-version = "1.7.1"
+version = "1.7.2"
 
 [[deps.Hyperscript]]
 deps = ["Test"]
@@ -825,9 +736,9 @@ uuid = "9b13fd28-a010-5f03-acff-a1bbcff69959"
 version = "1.0.0"
 
 [[deps.Inflate]]
-git-tree-sha1 = "f5fc07d4e706b84f72d54eedcc1c13d92fb0871c"
+git-tree-sha1 = "5cd07aab533df5170988219191dfad0519391428"
 uuid = "d25df0c9-e2be-5dd7-82c8-3ad0b3e990b9"
-version = "0.1.2"
+version = "0.1.3"
 
 [[deps.IntegralArrays]]
 deps = ["ColorTypes", "FixedPointNumbers", "IntervalSets"]
@@ -853,9 +764,9 @@ version = "0.14.4"
 
 [[deps.IntervalSets]]
 deps = ["Dates", "Random", "Statistics"]
-git-tree-sha1 = "57af5939800bce15980bddd2426912c4f83012d8"
+git-tree-sha1 = "076bb0da51a8c8d1229936a1af7bdfacd65037e1"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
-version = "0.7.1"
+version = "0.7.2"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
@@ -909,6 +820,12 @@ git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
 
+[[deps.LLVMOpenMP_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "ad927676766e6529a2d5152f12040620447c0c9b"
+uuid = "1d63c593-3942-5779-bab2-d838dc0a180e"
+version = "14.0.4+0"
+
 [[deps.LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
 uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
@@ -949,18 +866,22 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "361c2b088575b07946508f135ac556751240091c"
+git-tree-sha1 = "94d9c52ca447e23eac0c0f074effbcd38830deb5"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.17"
+version = "0.3.18"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "e595b205efd49508358f7dc670a940c790204629"
+git-tree-sha1 = "41d162ae9c868218b1f3fe78cba878aa348c2d26"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2022.0.0+0"
+version = "2022.1.0+0"
+
+[[deps.MPFR_jll]]
+deps = ["Artifacts", "GMP_jll", "Libdl"]
+uuid = "3a97d323-0669-5f0c-9066-3539efd106a3"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -1004,12 +925,6 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-
-[[deps.MutableArithmetics]]
-deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "4e675d6e9ec02061800d6cfb695812becbd03cdf"
-uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "1.0.4"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -1089,9 +1004,9 @@ version = "0.12.3"
 
 [[deps.Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "0044b23da09b5608b4ecacb4e5e6c6332f833a7e"
+git-tree-sha1 = "3d5bf43e3e8b412656404ed9466f1dcbf7c50269"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.3.2"
+version = "2.4.0"
 
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
@@ -1099,9 +1014,9 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
-git-tree-sha1 = "a7a7e1a88853564e551e4eba8650f8c38df79b37"
+git-tree-sha1 = "f6cf8e7944e50901594838951729a1861e668cb8"
 uuid = "eebad327-c553-4316-9ea0-9fa01ccd7688"
-version = "0.1.1"
+version = "0.3.2"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
@@ -1110,10 +1025,10 @@ uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 version = "0.7.39"
 
 [[deps.Polynomials]]
-deps = ["LinearAlgebra", "MutableArithmetics", "RecipesBase"]
-git-tree-sha1 = "d317b9f0dcef76246166f24f19cec16cdad19bf6"
+deps = ["LinearAlgebra", "RecipesBase"]
+git-tree-sha1 = "3010a6dd6ad4c7384d2f38c58fa8172797d879c1"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
-version = "3.1.7"
+version = "3.2.0"
 
 [[deps.Preferences]]
 deps = ["TOML"]
@@ -1130,12 +1045,6 @@ deps = ["Distributed", "Printf"]
 git-tree-sha1 = "d7a7aef8f8f2d537104f170139553b14dfe39fe9"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.7.2"
-
-[[deps.PyCall]]
-deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
-git-tree-sha1 = "1fc929f47d7c151c839c5fc1375929766fb8edcc"
-uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-version = "1.93.1"
 
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
@@ -1251,14 +1160,14 @@ version = "0.1.1"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore", "Statistics"]
-git-tree-sha1 = "23368a3313d12a2326ad0035f0db0c0966f438ef"
+git-tree-sha1 = "dfec37b90740e3b9aa5dc2613892a3fc155c3b42"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.5.2"
+version = "1.5.6"
 
 [[deps.StaticArraysCore]]
-git-tree-sha1 = "66fe9eb253f910fe8cf161953880cfdaef01cdf0"
+git-tree-sha1 = "ec2bd695e905a3c755b33026954b119ea17f2d22"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
-version = "1.0.1"
+version = "1.3.0"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1275,6 +1184,12 @@ deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missin
 git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.21"
+
+[[deps.StringDistances]]
+deps = ["Distances", "StatsAPI"]
+git-tree-sha1 = "ceeef74797d961aee825aabf71446d6aba898acb"
+uuid = "88034a9c-02f8-509d-84a9-84ec65e18404"
+version = "0.11.2"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1294,11 +1209,17 @@ version = "0.1.1"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[deps.TestImages]]
+deps = ["AxisArrays", "ColorTypes", "FileIO", "ImageIO", "ImageMagick", "OffsetArrays", "Pkg", "StringDistances"]
+git-tree-sha1 = "3cbfd92ae1688129914450ff962acfc9ced42520"
+uuid = "5e47fb64-e119-507b-a336-dd2b206d9990"
+version = "1.7.0"
+
 [[deps.TiffImages]]
 deps = ["ColorTypes", "DataStructures", "DocStringExtensions", "FileIO", "FixedPointNumbers", "IndirectArrays", "Inflate", "Mmap", "OffsetArrays", "PkgVersion", "ProgressMeter", "UUIDs"]
-git-tree-sha1 = "fcf41697256f2b759de9380a7e8196d6516f0310"
+git-tree-sha1 = "70e6d2da9210371c927176cb7a56d41ef1260db7"
 uuid = "731e570b-9d59-4bfa-96dc-6df516fadf69"
-version = "0.6.0"
+version = "0.6.1"
 
 [[deps.TiledIteration]]
 deps = ["OffsetArrays"]
@@ -1306,11 +1227,17 @@ git-tree-sha1 = "5683455224ba92ef59db72d10690690f4a8dc297"
 uuid = "06e1c1a7-607b-532d-9fad-de7d9aa2abac"
 version = "0.3.1"
 
+[[deps.ToeplitzMatrices]]
+deps = ["AbstractFFTs", "DSP", "LinearAlgebra", "StatsBase"]
+git-tree-sha1 = "66ac18e4232016bed257ac7f15c13a765f18aa39"
+uuid = "c751599d-da0a-543b-9d20-d0a503d91d24"
+version = "0.7.1"
+
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
+git-tree-sha1 = "ed5d390c7addb70e90fd1eb783dcb9897922cbfa"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.6"
+version = "0.9.8"
 
 [[deps.Tricks]]
 git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
@@ -1328,11 +1255,6 @@ version = "1.0.2"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
-
-[[deps.VersionParsing]]
-git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"
-uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
-version = "1.3.0"
 
 [[deps.WoodburyMatrices]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1376,83 +1298,49 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╟─87a51a42-1b80-11ed-2daf-ed0ffdbba2f1
-# ╠═3ac2397f-5833-4a8b-a0c9-d7a1fb220dcd
-# ╟─cc5d2b6a-df56-4323-b150-e38f4901ed61
-# ╟─cb1acf84-f567-4ad3-b1e3-834270cba060
-# ╟─8c852f74-80b5-4040-b253-7fa0a670e52a
-# ╟─d86fadda-440b-4d21-a3b0-7e3843da0df5
-# ╟─78dec682-8a8c-4d71-b5b5-c7cc3ed75844
-# ╟─bf48bdc1-c394-4a80-9216-da12197a0fc3
-# ╟─1baabb42-763c-47d5-b28f-ff1211c6b53f
-# ╟─baca2f37-0302-46ee-867d-4142c0dc660f
-# ╠═6ec4a969-a7ad-4374-b539-a46be3498492
-# ╟─45dc971a-96c0-4666-9903-47ef3331c9a3
-# ╟─63927b63-8449-4446-ba9d-9ca5677e603d
-# ╟─6b4b0d20-01dc-4c65-8dfb-bb1a19f0f669
-# ╟─1980995a-30e1-4361-989a-f492341b2170
-# ╟─b20c49e5-6683-4c84-ba37-131dde8cae62
-# ╟─b085d890-3ce8-43f6-9fa9-942fb043fb84
-# ╟─aa4d3f8a-b3d7-4f53-844a-1a3e55081637
-# ╟─ad200eed-620a-4f12-ac2b-bf4ff3b0df0d
-# ╟─58593f12-386f-46a9-9b60-609ca14c1668
-# ╟─60418d1a-2e7d-4b5b-b653-ecbf99a35b52
-# ╟─f8ad71b9-2640-40ca-a336-0a8fbcd8d7e2
-# ╟─b7cb9859-3077-4f0a-b7e4-b3508d80d1c7
-# ╠═79120528-87aa-408d-aac4-a06afbf36956
-# ╠═cc11833e-6dd2-4bb6-874d-18dc2a64df4b
-# ╟─dcb7a836-8795-4d58-bb54-1b91102a0b6b
-# ╟─3b06a94f-9fa6-4529-b947-5d60294ed888
-# ╟─1698fb76-bd3c-42d6-a541-bb7f1a96811c
-# ╟─535d10ff-921d-4fe5-a8cc-58ea42641248
-# ╠═27a2c607-0938-43c0-98c0-02d6fb6fa996
-# ╟─a31b097d-7763-400c-b7a1-2df9607f98d6
-# ╠═1e43e851-a63c-4778-a180-9c463e044d50
-# ╠═652ab662-ef89-422d-9cf2-28d71063d1b3
-# ╟─021b7491-d01a-45fe-94ca-6cf55768d509
-# ╟─7f231b63-22d2-46ce-ae36-5d3b75df3bdb
-# ╟─4473310c-7b3e-47a3-8367-135f4ee6bc05
-# ╠═4cb2e186-3e56-4014-a36b-d722753a6820
-# ╟─63085d91-9407-442f-9106-58a5fc6a62b1
-# ╠═8b723f2a-01c0-4d95-98d8-6587104399f9
-# ╠═283ec60a-a925-431d-be49-f36a247612e9
-# ╟─8f298bbd-b2f8-4d11-96fc-cb5d0c0793f0
-# ╠═b2627290-f641-4bf1-81a4-fd60acd698f6
-# ╟─3e92e715-b9c4-4420-817e-385a9f47b5ae
-# ╟─af49fc76-13bb-486c-837d-2ce9ce753dcc
-# ╟─86d61a95-c118-44e3-a35d-d1cab327bbd2
-# ╟─ef6bcec6-3764-4103-976b-ed23870fa4cd
-# ╠═d278c9c5-0e2c-4117-be32-4deaaf7f62dc
-# ╠═14cf1de6-8225-47ee-a54f-fce2aa9b15fe
-# ╟─cc7a5c65-497d-4d9c-b2a3-2d3317528b5c
-# ╟─9423537a-31e1-4966-b11b-9ca8deef5c73
-# ╟─700e2abe-3c77-4046-b14e-5149db3fcf80
-# ╟─895f4aa3-c4d6-4e58-978a-261995983fc0
-# ╟─5360c45f-88b9-4193-ade8-469a9d87cbb2
-# ╟─0c6d5f87-773e-4d58-a972-1199981855a0
-# ╠═61e8ed0c-ae56-448f-b8b7-559a96c6300f
-# ╟─c33f4c84-d965-4beb-a30f-4831b1d4c18d
-# ╟─18bf7a1c-8b8b-49ae-b2f8-88b5034c7e57
-# ╠═1045e45f-1d38-40b6-b914-6eaff3d04d3e
-# ╟─af942307-3cd0-4c22-8dd8-a8fd3ac739c0
-# ╟─8a543f5c-610b-47e6-8cb7-511a2d593317
-# ╠═ae324f81-719f-4fd3-b627-1341a550e6aa
-# ╠═bcc6de80-a742-4d0e-936c-eba49a71a4fe
-# ╠═94d24f8e-5b36-497a-8513-19af9c01e885
-# ╟─97002a41-ce6b-4e93-a863-682173ee85ea
-# ╠═51048d6b-7942-4d7e-b320-8cf181c749b8
-# ╟─c6e925a3-6463-415b-8566-5d7354185b25
-# ╟─4e36a48c-a80a-4380-86f8-3f0b24eb9698
-# ╟─366d1de3-d83c-45fa-9546-978829c424c9
-# ╠═2d57a0fc-7a18-474c-85ef-5dbf217ac62b
-# ╟─0819a435-9f3c-40b2-af29-082f4aed35f6
-# ╟─c45bd3e9-4166-451c-bd74-93676a32a07e
-# ╟─82fb768d-8a8d-4f09-8f18-582ff474fb00
-# ╟─c38c09d7-8fb8-4379-ab27-b025803f250b
-# ╟─a33126cb-f331-492b-bb4a-a439e86e2968
-# ╠═ae1d577c-920b-484c-9424-2eaa983e2749
-# ╟─58110a88-0dc0-41e7-a6d5-9192588f0a54
-# ╠═12deb10d-8f64-4372-9787-e7fd548704bf
-# ╟─80a234ae-fcfc-42bd-b9fc-74931c127f0d
+# ╟─f185414f-3fe0-42d3-acfd-db0db87f912e
+# ╟─a3973ab8-ea68-44bc-9e69-aa112b01969e
+# ╟─8d9cbab4-55c0-4c00-b160-56663889093f
+# ╟─d02c57ca-833f-46d4-9b52-40a4e19c04e4
+# ╟─d2ce8798-d051-4a62-a86a-683ce88ab185
+# ╟─2a13e4cd-3b74-4411-93b9-a13c43b5aef9
+# ╠═25d60b5f-c777-4dfc-bc8b-5cb63c815c3e
+# ╟─74d1cb19-722c-4318-a462-50e354213ad5
+# ╟─7c977cea-e2ca-496e-8143-160507198a10
+# ╠═ba029766-7dfd-4300-819c-69e5895a78b5
+# ╟─004b7c77-10f8-4c17-879f-5d764fef5b04
+# ╟─f94cbcf1-c0d8-4d2c-8006-39d041b6ec97
+# ╟─1331d25d-92f7-4019-918d-69728aa2d5a5
+# ╠═db7f9a05-7396-40d6-8c2c-86cd4a0089b6
+# ╟─92b82cce-0048-476e-be26-077301b0f726
+# ╠═eca06de5-abac-45f9-8d0a-682e664b4e2f
+# ╠═967a1632-882c-46ed-a014-573de3296b7d
+# ╟─ad57564d-6e88-4c70-948c-d04b783fa46b
+# ╠═54022bed-5490-4d27-b379-4dae999ae9c5
+# ╟─d0ebd0c1-b5bb-42e3-a18e-fafd9463b574
+# ╟─7cd86e73-9873-4b48-aedd-65fc112152c6
+# ╠═0a5b5027-6f97-4deb-a6f8-8535d6e9349b
+# ╟─84eeb05a-3bab-40bc-94e1-7ca704f519d4
+# ╟─957144a5-8956-4ff4-8370-c300076d6e90
+# ╠═52ae6fcc-e172-4410-84ab-9e97d38f763f
+# ╟─7a34c88e-2b0c-40c7-8ac1-2e8ddaa2e938
+# ╠═fd5b8519-7a90-4445-8e63-dc2ae2554ad7
+# ╟─eccc0724-f28c-432a-a133-cad5ef492cf0
+# ╟─201c469c-e7f6-4de3-81cc-7f47c3fc86fa
+# ╠═6065f983-04d8-4910-a5c6-c2b766b6fd3a
+# ╟─f6ff586e-18de-439e-9ca7-69806b584314
+# ╠═0adb8c67-2db2-4227-9a0b-b8f42598a5b4
+# ╟─1473fb8f-714a-4c0f-acef-62ef9c9ae6c7
+# ╟─9a379887-8869-48f1-a639-db995347ec57
+# ╟─a331521f-4d2e-46d8-a352-98dfe0efd947
+# ╠═5ef02319-4bc2-40f7-8918-ca2d79e0d1cf
+# ╟─23fe230a-49de-49e3-b6ac-fa0792ad48a3
+# ╟─30681ce3-ce10-42b0-99aa-ee0912a99956
+# ╟─4a7d7c11-4075-44bf-8e53-10761c415fff
+# ╠═a76d9e50-257e-11ed-1351-614a331a5648
+# ╠═68703d02-ebda-41bd-ba59-52ae25a58595
+# ╠═a6eece5d-adf6-4be5-acf2-5b5cc4f8696f
+# ╠═ca7c5b96-9f16-4fd8-b439-c8a5ef26561f
+# ╠═d406e665-fe16-4b87-afc7-1e7b80db748e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
