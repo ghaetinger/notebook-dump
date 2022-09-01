@@ -15,10 +15,23 @@ macro bind(def, element)
 end
 
 # ╔═╡ 3bae17b8-2654-11ed-363e-27a4e1e9060f
-using Colors, Plots, PlutoUI, LinearAlgebra
+using Colors, Plots, PlutoUI, LinearAlgebra, StaticArrays
+
+# ╔═╡ f8495ce8-f1cc-48c2-a7f1-024ac1eefbce
+md"""
+# TODOs
+- Deixar shapes em vermelho somente durante a colisão
+- Inicializar vetor velocidade de cada shape com rand(2)
+- Criar novo Geometry do tipo Line
+- Colocar template para is_colliding(x, ::Line)
+- Adicionar Unit Tests para validar se as colisões estão funcionando
+- Adicionar quatro bordas da domínio sendo plotado como quatro Lines
+- Implementar lógica de "reflexão" do vetor velocidade nas bordas
+- Organizar as células do notebook
+"""
 
 # ╔═╡ b4c7b7ac-71df-449a-8ac5-8e3e039e924a
-const SpatialVec = Tuple{Float64, Float64}
+const SpatialVec = SVector{2,Float64}
 
 # ╔═╡ 42a46dd3-03f9-4d7e-b38c-70622f661c32
 abstract type Geometry; end
@@ -69,8 +82,8 @@ end;
 # ╔═╡ ddd2c264-2405-49c0-815d-1ae206dfed55
 function is_colliding(circle_1::Circle, circle_2::Circle)
 	distance = norm(circle_1.pos .- circle_2.pos)
-	sum_of_radius = norm(circle_1.radius .+ circle_2.radius)
-	return distance - err <= sum_of_radius
+	sum_of_radius = circle_1.radius + circle_2.radius
+	return distance <= sum_of_radius
 end;
 
 # ╔═╡ 45f4d8d4-e353-4c6f-89f7-81eb5e081b90
@@ -92,6 +105,8 @@ function simulate_until_t(initial_state::State, max_t::Int64) :: State
 		for i ∈ 1:num_agents
 			state_t.agents[i].shape.pos =
 				state_t.agents[i].shape.pos .+ state_t.agents[i].➜
+		end
+		for i ∈ 1:num_agents
 			for j ∈ i+1:num_agents
 				if is_colliding(state_t.agents[i].shape, state_t.agents[j].shape)
 					state_t.agents[i].shape.color = RGB(1, 0, 0)
@@ -139,11 +154,19 @@ function Plots.plot!(state::State)
 end
 
 # ╔═╡ 3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
-@bind time Slider(1:1000)
+@bind clock Clock(interval = 0.01)
+
+# ╔═╡ 76470846-99d6-4744-b8ff-70c7ce10e94c
+time = clock % 300
 
 # ╔═╡ f24375c7-6cf0-433b-885b-831be7f6f304
 begin
-	plot(; xlims=(-10, 10), ylims=(-7, 7), legend=false)
+	plot(
+		; xlims=(-10, 10)
+		, ylims=(-7, 7)
+		, legend=false
+		, ticks = -10:10
+	)
 	agents = 
 		[
 			Agent(Box(2, 2, (20, -4), RGB(1, 1, 0)), (-0.2, 0)),
@@ -170,19 +193,22 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 Colors = "~0.12.8"
 Plots = "~1.31.7"
 PlutoUI = "~0.7.39"
+StaticArrays = "~1.5.6"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.8.0"
 manifest_format = "2.0"
+project_hash = "052c3e326035433f06715b0b9b30b488149f892e"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -198,6 +224,7 @@ version = "3.4.0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -268,6 +295,7 @@ version = "4.2.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.2+0"
 
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
@@ -307,6 +335,7 @@ version = "0.9.1"
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -533,10 +562,12 @@ version = "0.15.16"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.84.0+0"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -545,6 +576,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.10.2+0"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -635,6 +667,7 @@ version = "1.1.4"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.28.0+0"
 
 [[deps.Measures]]
 git-tree-sha1 = "e498ddeee6f9fdb4551ce855a46f54dbd900245f"
@@ -652,6 +685,7 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2022.2.1"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -661,6 +695,7 @@ version = "1.0.1"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -671,10 +706,12 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.20+0"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -720,6 +757,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
@@ -799,6 +837,7 @@ version = "1.3.0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -875,6 +914,7 @@ version = "0.6.12"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -891,6 +931,7 @@ version = "1.7.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1089,6 +1130,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+3"
 
 [[deps.Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1111,6 +1153,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "5.1.1+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1133,10 +1176,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.48.0+0"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "17.4.0+0"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1158,6 +1203,7 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─f8495ce8-f1cc-48c2-a7f1-024ac1eefbce
 # ╠═3bae17b8-2654-11ed-363e-27a4e1e9060f
 # ╠═b4c7b7ac-71df-449a-8ac5-8e3e039e924a
 # ╠═42a46dd3-03f9-4d7e-b38c-70622f661c32
@@ -1178,6 +1224,7 @@ version = "1.4.1+0"
 # ╠═9196ebc2-7c84-4d51-a66c-bb82a37ac685
 # ╠═5a7f2fad-47fc-4527-9f02-725b6e74074a
 # ╠═3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
+# ╠═76470846-99d6-4744-b8ff-70c7ce10e94c
 # ╠═f24375c7-6cf0-433b-885b-831be7f6f304
 # ╠═46973cda-7338-41f7-915f-a0f2f7f21aef
 # ╠═fe1c11be-4c30-4a17-8b00-32c56a2b3bed
