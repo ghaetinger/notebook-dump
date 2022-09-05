@@ -51,15 +51,33 @@ mutable struct Circle <: Geometry
 	color :: RGB
 end
 
+# ╔═╡ 6bb1ca76-3255-43ca-b0d1-d934a40c4b79
+@enum Orientation Vertical Horizontal;
+
+# ╔═╡ afb41633-d98b-4a2c-931a-1bec0e874369
+struct Line <: Geometry
+	n :: Float64
+	orientation :: Orientation
+end
+
+# ╔═╡ 547bf952-9832-47e5-9ab2-7a78ba496fc8
+struct Bounds
+	min_x :: Float64
+	max_x :: Float64
+	min_y :: Float64
+	max_y :: Float64
+end
+
 # ╔═╡ fdd5bb1f-5f99-4264-bdb4-cafb2aa45438
 mutable struct Agent
 	shape :: Geometry
-	➜ :: SpatialVec
+	vec :: SpatialVec
 end
 
 # ╔═╡ d0962c63-743b-4912-abd3-c8ef9ddf1646
 mutable struct State
 	agents :: Vector{Agent}
+	bounds :: Bounds
 end
 
 # ╔═╡ 68327908-7dca-42be-a978-4ba49f6fcce7
@@ -70,6 +88,42 @@ err = 0.1
 
 # ╔═╡ 1aa698f5-52c3-4528-aab7-0bfeaa676495
 num_samples = 100
+
+# ╔═╡ fbe1992b-7e01-4713-a16a-5b94704fb0b1
+function reflect(agent::Agent, line::Line)
+    axis_v = (line.orientation == Vertical ? [1, 0] : [0, 1])
+	return (agent.vec .- (2 * dot(agent.vec, axis_v) * axis_v))
+end
+
+# ╔═╡ c35d726e-f180-4595-b46f-89ee700a9d1e
+function is_colliding(box::Box, line::Line)
+	if line.orientation == Vertical
+		side = (box.x_side / 2)
+		@info [			box.pos.y + side, box.pos.y - side ] .- line.n
+		
+		return minimum([
+			box.pos.x + side,
+			box.pos.x - side
+		] .- line.n) <= 0.0001
+	else
+		side = (box.y_side / 2)
+		return minimum([
+			box.pos.y + side,
+			box.pos.y - side
+		] .- line.n) <= 0.0001
+	end
+end;
+
+# ╔═╡ 265dff92-ab27-453a-86c4-1deeacd05efe
+function is_colliding(circle::Circle, line::Line)
+	if line.orientation == Vertical
+		return floor(circle.pos.x + circle.radius) == line.n || 
+			   ceil(circle.pos.x - circle.radius) == line.n
+	else
+		return floor(circle.pos.y + circle.radius) == line.n || 
+		       ceil(circle.pos.y - circle.radius) == line.n
+	end
+end;
 
 # ╔═╡ 208c162d-dc66-47d3-9a4b-0508a2f95a31
 function is_colliding(box_1::Box, box_2::Box)
@@ -97,27 +151,6 @@ end;
 # ╔═╡ 6baf545e-6fd5-4b69-89cc-fe6feaf37dbe
 is_colliding(circle::Circle, box::Box) = is_colliding(box, circle);
 
-# ╔═╡ c0f7340b-d7c8-4620-8ef3-5cea8ab65445
-function simulate_until_t(initial_state::State, max_t::Int64) :: State
-	num_agents = length(initial_state.agents)
-	state_t = deepcopy(initial_state)
-	for t ∈ 1:max_t
-		for i ∈ 1:num_agents
-			state_t.agents[i].shape.pos =
-				state_t.agents[i].shape.pos .+ state_t.agents[i].➜
-		end
-		for i ∈ 1:num_agents
-			for j ∈ i+1:num_agents
-				if is_colliding(state_t.agents[i].shape, state_t.agents[j].shape)
-					state_t.agents[i].shape.color = RGB(1, 0, 0)
-					state_t.agents[j].shape.color = RGB(1, 0, 0)
-				end
-			end
-		end
-	end
-	return state_t
-end
-
 # ╔═╡ 9196ebc2-7c84-4d51-a66c-bb82a37ac685
 function Plots.plot!(circle::Circle)
 	step = 2π/num_samples
@@ -141,6 +174,69 @@ function Plots.plot!(box::Box)
 	plot!([right, right], [top, bottom], color=box.color, linewidth=linewidth)
 end
 
+# ╔═╡ 43ec961a-c7c2-4694-bd48-8c80be5f8926
+lines_and_ranges(bounds::Bounds) = [
+		(Line(bounds.min_x, Vertical), [bounds.min_y, bounds.max_y]),
+		(Line(bounds.max_x, Vertical), [bounds.min_y, bounds.max_y]),
+		(Line(bounds.min_y, Horizontal), [bounds.min_x, bounds.max_x]),
+		(Line(bounds.max_y, Horizontal), [bounds.min_x, bounds.max_x])
+	]
+
+# ╔═╡ c0f7340b-d7c8-4620-8ef3-5cea8ab65445
+function simulate_until_t(initial_state::State, max_t::Int64) :: State
+	num_agents = length(initial_state.agents)
+	state_t = deepcopy(initial_state)
+	for t ∈ 1:max_t
+		for i ∈ 1:num_agents
+			state_t.agents[i].shape.pos =
+				state_t.agents[i].shape.pos .+ state_t.agents[i].vec
+		end
+		
+		for i ∈ 1:num_agents
+			for (line, range) ∈ lines_and_ranges(state_t.bounds)
+				if is_colliding(state_t.agents[i].shape, line)
+					state_t.agents[i].vec = reflect(state_t.agents[i], line)
+				end
+			end
+		end
+		
+		if t == max_t
+			for i ∈ 1:num_agents
+				for j ∈ i+1:num_agents
+					if is_colliding(state_t.agents[i].shape, state_t.agents[j].shape)
+						state_t.agents[i].shape.color = RGB(1, 0, 0)
+						state_t.agents[j].shape.color = RGB(1, 0, 0)
+					end
+				end
+			end
+		end
+	end
+	return state_t
+end
+
+# ╔═╡ 0df5ffa4-34cf-4322-9079-91ad51b965d0
+function Plots.plot!(line::Line; range=[-1000, 1000])
+	if line.orientation == Vertical
+		Plots.plot!([line.n, line.n], range, color=:black, linewidth=linewidth)
+	else
+		Plots.plot!(range, [line.n, line.n], color=:black, linewidth=linewidth)
+	end
+	plot!()
+end
+
+# ╔═╡ a3f4c59a-6723-4147-b113-f91d43d07d0c
+function Plots.plot!(bounds::Bounds)
+	lines = lines_and_ranges(bounds)
+
+	p = nothing
+	
+	for (line, range) ∈ lines
+		p = Plots.plot!(line, range=range)
+	end
+
+	return p
+end
+
 # ╔═╡ 2d717860-aec1-49ce-8883-48eaaf546118
 Plots.plot!(agent::Agent) = Plots.plot!(agent.shape)
 
@@ -150,41 +246,44 @@ function Plots.plot!(state::State)
 	for agent ∈ state.agents
 		p = Plots.plot!(agent)
 	end
+	
+	p = Plots.plot!(state.bounds)
+		
 	return p
 end
 
 # ╔═╡ 3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
-@bind clock Clock(interval = 0.01)
+@bind clock Clock(interval = 0.01; max_value=1000)
 
 # ╔═╡ 76470846-99d6-4744-b8ff-70c7ce10e94c
-time = clock % 300
+time = clock
 
 # ╔═╡ f24375c7-6cf0-433b-885b-831be7f6f304
 begin
 	plot(
-		; xlims=(-10, 10)
-		, ylims=(-7, 7)
+		; xlims=(-1, 17)
+		, ylims=(-1, 11)
 		, legend=false
-		, ticks = -10:10
 	)
+
+	bounds = Bounds(0, 15, 0, 10)
+	
+	# bounds = [ 
+	# 	Line(0, Vertical), Line(10, Vertical), 
+	# 	Line(0, Horizontal), Line(10, Horizontal)
+	# ]
+
 	agents = 
 		[
-			Agent(Box(2, 2, (20, -4), RGB(1, 1, 0)), (-0.2, 0)),
-			Agent(Box(2, 4, (10, 0), RGB(0, 1, 0)), (-0.1, 0)),
-			Agent(Box(4, 2, (6, 10), RGB(0, 0, 1)), (0, -0.1)),
-			Agent(Circle(1, (-50, 0), RGB(1, 0, 1)), (0.2, 0)),
-			Agent(Circle(1, (50, 1), RGB(0.1, 0.2, 0)), (-0.2, 0))
+			Agent(Box(0.5, 0.5, (1, 1), RGB(1, 0, 1)), (0.02, 0.02)),
+			Agent(Box(2, 0.75, (7.5, 5), RGB(0, 1, 1)), (0.01, -0.2)),
+			Agent(Circle(1, (13, 2), RGB(0, 0, 1)), (-0.02, 0.02)),
 		]
-	initial_state = State(agents)
+
+	initial_state = State(agents, bounds)
 	state = simulate_until_t(initial_state, time)
 	plot!(state)
 end
-
-# ╔═╡ 46973cda-7338-41f7-915f-a0f2f7f21aef
-norm([1.8, 1.0])
-
-# ╔═╡ fe1c11be-4c30-4a17-8b00-32c56a2b3bed
-state
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -206,9 +305,8 @@ StaticArrays = "~1.5.6"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.0"
+julia_version = "1.7.3"
 manifest_format = "2.0"
-project_hash = "052c3e326035433f06715b0b9b30b488149f892e"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -224,7 +322,6 @@ version = "3.4.0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
-version = "1.1.1"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -295,7 +392,6 @@ version = "4.2.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "0.5.2+0"
 
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
@@ -335,7 +431,6 @@ version = "0.9.1"
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
-version = "1.6.0"
 
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -562,12 +657,10 @@ version = "0.15.16"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
-version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "7.84.0+0"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -576,7 +669,6 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.10.2+0"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -667,7 +759,6 @@ version = "1.1.4"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.28.0+0"
 
 [[deps.Measures]]
 git-tree-sha1 = "e498ddeee6f9fdb4551ce855a46f54dbd900245f"
@@ -685,7 +776,6 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2022.2.1"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -695,7 +785,6 @@ version = "1.0.1"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
-version = "1.2.0"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -706,12 +795,10 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.20+0"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -757,7 +844,6 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.8.0"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
@@ -837,7 +923,6 @@ version = "1.3.0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
-version = "0.7.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -914,7 +999,6 @@ version = "0.6.12"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -931,7 +1015,6 @@ version = "1.7.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
-version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -945,9 +1028,9 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "ed5d390c7addb70e90fd1eb783dcb9897922cbfa"
+git-tree-sha1 = "8a75929dcd3c38611db2f8d08546decb514fcadf"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.8"
+version = "0.9.9"
 
 [[deps.Tricks]]
 git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
@@ -1130,7 +1213,6 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
-version = "1.2.12+3"
 
 [[deps.Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1153,7 +1235,6 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.1.1+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1176,12 +1257,10 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.48.0+0"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
-version = "17.4.0+0"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1209,12 +1288,18 @@ version = "1.4.1+0"
 # ╠═42a46dd3-03f9-4d7e-b38c-70622f661c32
 # ╠═a961c8ad-fbca-4621-a6b5-0375f4bedeb5
 # ╠═7811ef4d-292f-4681-bc5b-4b876bc2dedb
+# ╠═6bb1ca76-3255-43ca-b0d1-d934a40c4b79
+# ╠═afb41633-d98b-4a2c-931a-1bec0e874369
+# ╠═547bf952-9832-47e5-9ab2-7a78ba496fc8
 # ╠═fdd5bb1f-5f99-4264-bdb4-cafb2aa45438
 # ╠═d0962c63-743b-4912-abd3-c8ef9ddf1646
 # ╠═c0f7340b-d7c8-4620-8ef3-5cea8ab65445
 # ╟─68327908-7dca-42be-a978-4ba49f6fcce7
 # ╟─68c6215d-c67f-4250-81c2-5e08f9059525
 # ╟─1aa698f5-52c3-4528-aab7-0bfeaa676495
+# ╠═fbe1992b-7e01-4713-a16a-5b94704fb0b1
+# ╠═c35d726e-f180-4595-b46f-89ee700a9d1e
+# ╠═265dff92-ab27-453a-86c4-1deeacd05efe
 # ╠═208c162d-dc66-47d3-9a4b-0508a2f95a31
 # ╠═ddd2c264-2405-49c0-815d-1ae206dfed55
 # ╠═45f4d8d4-e353-4c6f-89f7-81eb5e081b90
@@ -1223,10 +1308,11 @@ version = "1.4.1+0"
 # ╠═2d717860-aec1-49ce-8883-48eaaf546118
 # ╠═9196ebc2-7c84-4d51-a66c-bb82a37ac685
 # ╠═5a7f2fad-47fc-4527-9f02-725b6e74074a
+# ╠═43ec961a-c7c2-4694-bd48-8c80be5f8926
+# ╠═a3f4c59a-6723-4147-b113-f91d43d07d0c
+# ╠═0df5ffa4-34cf-4322-9079-91ad51b965d0
 # ╠═3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
 # ╠═76470846-99d6-4744-b8ff-70c7ce10e94c
 # ╠═f24375c7-6cf0-433b-885b-831be7f6f304
-# ╠═46973cda-7338-41f7-915f-a0f2f7f21aef
-# ╠═fe1c11be-4c30-4a17-8b00-32c56a2b3bed
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
