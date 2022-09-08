@@ -19,7 +19,7 @@ python_stuff = mach-nix.mkPython {
 in
 
 mkShell {
-  buildInputs = [ julia_17-bin python_stuff ];
+  buildInputs = [ python_stuff figlet ];
   shellHook = ''
     figlet -f slant "Welcome to my Dump!"
     export PYTHON=${python_stuff}/bin/python
