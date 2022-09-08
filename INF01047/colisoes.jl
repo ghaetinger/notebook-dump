@@ -22,6 +22,7 @@ md"""
 # TODOs
 - Inicializar vetor velocidade de cada shape com rand(2)
 - Adicionar Unit Tests para validar se as colisões estão funcionando
+- Gerar um gif do resultado final esperado
 - Organizar as células do notebook
 
 # Done
