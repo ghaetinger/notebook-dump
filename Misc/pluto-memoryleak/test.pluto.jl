@@ -4,6 +4,16 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ 533eee0c-306d-11ed-2154-5f3d05273f9e
 using Deno_jll, HypertextLiteral, AbstractPlutoDingetjes, PlutoUI
 
@@ -63,7 +73,7 @@ bundle_code = begin
 end
 
 # ╔═╡ abab377e-be61-48fc-bbde-419ab39c1bf8
-@htl("""
+@bind x @htl("""
 <span id="thiselement"></span>
 <script>
 	const { render } = $(import_local_js(bundle_code))
@@ -71,6 +81,9 @@ end
 	render(element);
 </script>
 """)
+
+# ╔═╡ 7b258f5f-9039-4b66-a4a0-0b8c7f0644f6
+x
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -91,7 +104,7 @@ PlutoUI = "~0.7.40"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.0"
+julia_version = "1.8.1"
 manifest_format = "2.0"
 project_hash = "268046b991b93d557e987da5a709c87d3d35591f"
 
@@ -345,5 +358,6 @@ version = "17.4.0+0"
 # ╠═b8bb0941-3c19-4ba6-9d09-7165b9f77d9d
 # ╟─91dad1be-73ab-411b-9b80-5449ae0d7ee7
 # ╠═abab377e-be61-48fc-bbde-419ab39c1bf8
+# ╠═7b258f5f-9039-4b66-a4a0-0b8c7f0644f6
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
