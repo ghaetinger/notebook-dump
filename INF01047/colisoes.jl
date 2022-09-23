@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.12
 
 using Markdown
 using InteractiveUtils
@@ -15,7 +15,10 @@ macro bind(def, element)
 end
 
 # ╔═╡ 3bae17b8-2654-11ed-363e-27a4e1e9060f
-using Colors, Plots, PlutoUI, LinearAlgebra, StaticArrays
+using Colors, Plots, PlutoUI, PlutoTest, LinearAlgebra, StaticArrays
+
+# ╔═╡ 63846b91-2787-47a6-93f9-16694f4da5fb
+PlutoUI.TableOfContents()
 
 # ╔═╡ f8495ce8-f1cc-48c2-a7f1-024ac1eefbce
 md"""
@@ -33,6 +36,60 @@ md"""
 - Deixar shapes em vermelho somente durante a colisão
 """
 
+# ╔═╡ 3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
+@bind clock Clock(interval = 0.01; max_value=10000)
+
+# ╔═╡ 76470846-99d6-4744-b8ff-70c7ce10e94c
+time = clock;
+
+# ╔═╡ b4eb3c42-6e58-44e2-869b-b99ab001c1f9
+md"# Colisões"
+
+# ╔═╡ 665e1bb3-1ece-4c1e-8a18-15bf9685e47e
+md"## Box 💥 Line"
+
+# ╔═╡ 3903d25d-0f4f-4664-8555-2d9e548b0db5
+md"### Testes"
+
+# ╔═╡ 9486e2f9-98b9-4faa-86cd-efa30e5f808d
+md"## Circle 💥 Line"
+
+# ╔═╡ 669f7aa6-ca2d-4e3d-bea9-074a779f9089
+md"### Testes"
+
+# ╔═╡ 418141f1-6b02-4803-b6b9-5560bd6738a1
+md"## Box 💥 Box"
+
+# ╔═╡ c8ca4ebf-0b73-4ea1-8191-a473ce531bf8
+md"## Circle 💥 Circle"
+
+# ╔═╡ 4876d9ab-4694-458a-aae3-b8d6e969f109
+md"### Tests"
+
+# ╔═╡ 013fd020-79f0-492b-9d7d-3bde15c046ad
+md"## Box 💥 Circle"
+
+# ╔═╡ 25248f91-f736-408a-8ac8-281ea0455b1e
+md"# Simulação"
+
+# ╔═╡ 68327908-7dca-42be-a978-4ba49f6fcce7
+const linewidth = 4
+
+# ╔═╡ 68c6215d-c67f-4250-81c2-5e08f9059525
+err = 0.01
+
+# ╔═╡ 1aa698f5-52c3-4528-aab7-0bfeaa676495
+num_samples = 100
+
+# ╔═╡ 4e6a1f7f-5676-44e6-8eb7-446f67aa26d6
+md"# Setup"
+
+# ╔═╡ d296c0dc-ee16-431a-80d4-c876d54deedb
+md"## Adicionando pacotes"
+
+# ╔═╡ f27f9309-c9f4-4578-ab6a-00cf0af22a49
+md"## Definindo primitivas"
+
 # ╔═╡ b4c7b7ac-71df-449a-8ac5-8e3e039e924a
 const SpatialVec = SVector{2,Float64}
 
@@ -47,12 +104,37 @@ mutable struct Box <: Geometry
 	color :: RGB
 end
 
+# ╔═╡ 208c162d-dc66-47d3-9a4b-0508a2f95a31
+function is_colliding(box_1::Box, box_2::Box)
+
+	# TODO
+	
+	return false
+end;
+
 # ╔═╡ 7811ef4d-292f-4681-bc5b-4b876bc2dedb
 mutable struct Circle <: Geometry
 	radius :: Float64
 	pos :: SpatialVec
 	color :: RGB
 end
+
+# ╔═╡ ddd2c264-2405-49c0-815d-1ae206dfed55
+function is_colliding(circle_1::Circle, circle_2::Circle)
+	distance = norm(circle_1.pos .- circle_2.pos)
+	sum_of_radius = circle_1.radius + circle_2.radius
+	return distance <= sum_of_radius
+end;
+
+# ╔═╡ 45f4d8d4-e353-4c6f-89f7-81eb5e081b90
+function is_colliding(box::Box, circle::Circle)
+
+	# TODO
+	
+end;
+
+# ╔═╡ 6baf545e-6fd5-4b69-89cc-fe6feaf37dbe
+is_colliding(circle::Circle, box::Box) = is_colliding(box, circle);
 
 # ╔═╡ 6bb1ca76-3255-43ca-b0d1-d934a40c4b79
 @enum Orientation Vertical Horizontal;
@@ -62,6 +144,64 @@ struct Line <: Geometry
 	n :: Float64
 	orientation :: Orientation
 end
+
+# ╔═╡ c35d726e-f180-4595-b46f-89ee700a9d1e
+function is_colliding(box::Box, line::Line)
+	if line.orientation == Vertical
+		side = box.x_side / 2
+		return box.pos.x - side <= line.n <= box.pos.x + side
+	else
+		side = box.y_side / 2
+		return box.pos.y - side <= line.n <= box.pos.y + side
+	end
+end;
+
+# ╔═╡ 265dff92-ab27-453a-86c4-1deeacd05efe
+function is_colliding(circle::Circle, line::Line)
+	if line.orientation == Vertical
+		return circle.pos.x - circle.radius <= line.n <= circle.pos.x + circle.radius
+	else
+		return circle.pos.y - circle.radius <= line.n <= circle.pos.y + circle.radius
+	end
+end;
+
+# ╔═╡ 9ecd206f-e80d-461c-b36a-0bdfb91a5e27
+@test is_colliding(Box(10, 10, [0, 0], RGB(0, 0, 0)), Line(0, Horizontal))
+
+# ╔═╡ 11678446-f82c-4cf5-99b4-f8f2ee7bcc84
+@test is_colliding(Box(10, 10, [0, 0], RGB(0, 0, 0)), Line(0, Vertical))
+
+# ╔═╡ 7beab858-8058-4718-bce2-92b7df4afd7e
+@test !is_colliding(Box(10, 10, [-1, -1], RGB(0, 0, 0)), Line(9, Vertical))
+
+# ╔═╡ f2070a77-2132-4215-9471-975bc4a8143f
+@test !is_colliding(Box(10, 10, [-1, -1], RGB(0, 0, 0)), Line(9, Horizontal))
+
+# ╔═╡ 83ddbdd4-7740-4af6-aa34-1b0f9b736a39
+@test all(
+	(rand(10) .* 2π) .|>
+	α -> Circle(10, [cos(α), sin(α)], RGB(0, 0, 0)) |> 
+	circle -> is_colliding(circle, Circle(10, [0, 0], RGB(0, 0, 0)))
+)
+
+# ╔═╡ 83ace1e4-6ae6-4553-8c4d-50b4a0c96ef8
+@test !any(
+	(rand(10) .* π/4) .|>
+	α -> Circle(5, [cos(α), sin(α)], RGB(0, 0, 0)) |> 
+	circle -> is_colliding(circle, Circle(5, [-10, -10], RGB(0, 0, 0)))
+)
+
+# ╔═╡ 89ad84af-eb80-452e-853e-07d2c92ae62e
+@test is_colliding(Circle(2, [0, 0], RGB(0, 0, 0)), Line(0, Horizontal))
+
+# ╔═╡ 01bb3555-d900-4d0c-8a27-8040cb9dc482
+@test is_colliding(Circle(2, [0, 0], RGB(0, 0, 0)), Line(0, Vertical))
+
+# ╔═╡ 5447326f-ba12-4a36-a76f-90a08c8979df
+@test !is_colliding(Circle(2, [-1, -1], RGB(0, 0, 0)), Line(2, Vertical))
+
+# ╔═╡ f2398cc6-78c9-49d7-99c9-e492dae686c7
+@test !is_colliding(Circle(2, [-1, -1], RGB(0, 0, 0)), Line(2, Horizontal))
 
 # ╔═╡ 547bf952-9832-47e5-9ab2-7a78ba496fc8
 struct Bounds
@@ -77,85 +217,20 @@ mutable struct Agent
 	vec :: SpatialVec
 end
 
-# ╔═╡ d0962c63-743b-4912-abd3-c8ef9ddf1646
-mutable struct State
-	agents :: Vector{Agent}
-	bounds :: Bounds
-end
-
-# ╔═╡ 68327908-7dca-42be-a978-4ba49f6fcce7
-const linewidth = 4
-
-# ╔═╡ 68c6215d-c67f-4250-81c2-5e08f9059525
-err = 0.01
-
-# ╔═╡ 1aa698f5-52c3-4528-aab7-0bfeaa676495
-num_samples = 100
-
 # ╔═╡ fbe1992b-7e01-4713-a16a-5b94704fb0b1
 function reflect(agent::Agent, line::Line)
     axis_v = (line.orientation == Vertical ? [1, 0] : [0, 1])
 	return (agent.vec .- (2 * dot(agent.vec, axis_v) * axis_v))
 end
 
-# ╔═╡ c35d726e-f180-4595-b46f-89ee700a9d1e
-function is_colliding(box::Box, line::Line)
-	if line.orientation == Vertical
-		side = (box.x_side / 2)
-		
-		return minimum(abs.([
-			box.pos.x + side,
-			box.pos.x - side
-		] .- line.n)) <= err
-	else
-		side = (box.y_side / 2)
-		
-		return minimum(abs.([
-			box.pos.y + side,
-			box.pos.y - side
-		] .- line.n)) <= err
-	end
-end;
+# ╔═╡ d0962c63-743b-4912-abd3-c8ef9ddf1646
+mutable struct State
+	agents :: Vector{Agent}
+	bounds :: Bounds
+end
 
-# ╔═╡ 3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
-@bind clock Clock(interval = 0.01; max_value=1000)
-
-# ╔═╡ 265dff92-ab27-453a-86c4-1deeacd05efe
-function is_colliding(circle::Circle, line::Line)
-	if line.orientation == Vertical
-		return floor(circle.pos.x + circle.radius) == line.n || 
-			   ceil(circle.pos.x - circle.radius) == line.n
-	else
-		return floor(circle.pos.y + circle.radius) == line.n || 
-		       ceil(circle.pos.y - circle.radius) == line.n
-	end
-end;
-
-# ╔═╡ 208c162d-dc66-47d3-9a4b-0508a2f95a31
-function is_colliding(box_1::Box, box_2::Box)
-
-	# TODO
-	
-	return false
-end;
-
-# ╔═╡ ddd2c264-2405-49c0-815d-1ae206dfed55
-function is_colliding(circle_1::Circle, circle_2::Circle)
-	distance = norm(circle_1.pos .- circle_2.pos)
-	sum_of_radius = circle_1.radius + circle_2.radius
-	return distance <= sum_of_radius
-end;
-
-# ╔═╡ 45f4d8d4-e353-4c6f-89f7-81eb5e081b90
-function is_colliding(box::Box, circle::Circle)
-
-	# TODO
-	
-	return false
-end;
-
-# ╔═╡ 6baf545e-6fd5-4b69-89cc-fe6feaf37dbe
-is_colliding(circle::Circle, box::Box) = is_colliding(box, circle);
+# ╔═╡ 85eb2603-94d2-4d6f-ac1b-8dbdfb11ff4c
+md"## Plotting das primitivas"
 
 # ╔═╡ 9196ebc2-7c84-4d51-a66c-bb82a37ac685
 function Plots.plot!(circle::Circle)
@@ -192,27 +267,35 @@ lines_and_ranges(bounds::Bounds) = [
 function simulate_until_t(initial_state::State, max_t::Int64) :: State
 	num_agents = length(initial_state.agents)
 	state_t = deepcopy(initial_state)
+
+	# Para cada timestep
 	for t ∈ 1:max_t
+
+		# Incrementa a posição dos agentes
 		for i ∈ 1:num_agents
 			state_t.agents[i].shape.pos =
 				state_t.agents[i].shape.pos .+ state_t.agents[i].vec
 		end
-		
+
+		# Verifica colisão com as bordas e reflete agentes
 		for i ∈ 1:num_agents
 			for (line, range) ∈ lines_and_ranges(state_t.bounds)
-				if is_colliding(state_t.agents[i].shape, line)
+				if something(is_colliding(state_t.agents[i].shape, line), false)
 					state_t.agents[i].vec = reflect(state_t.agents[i], line)
 				end
 			end
 		end
-		
-		if t == max_t
-			for i ∈ 1:num_agents
-				for j ∈ i+1:num_agents
-					if is_colliding(state_t.agents[i].shape, state_t.agents[j].shape)
-						state_t.agents[i].shape.color = RGB(1, 0, 0)
-						state_t.agents[j].shape.color = RGB(1, 0, 0)
-					end
+
+		# Verifica colisões entre agentes
+		for i ∈ 1:num_agents
+			for j ∈ i+1:num_agents
+				if something(
+					is_colliding(
+						state_t.agents[i].shape, state_t.agents[j].shape
+					), false)
+					swap = deepcopy(state_t.agents[i].vec)
+					state_t.agents[i].vec = state_t.agents[j].vec
+					state_t.agents[j].vec = swap
 				end
 			end
 		end
@@ -258,9 +341,6 @@ function Plots.plot!(state::State)
 	return p
 end
 
-# ╔═╡ 76470846-99d6-4744-b8ff-70c7ce10e94c
-time = clock
-
 # ╔═╡ f24375c7-6cf0-433b-885b-831be7f6f304
 begin
 	plot(
@@ -270,17 +350,13 @@ begin
 	)
 
 	bounds = Bounds(0, 15, 0, 10)
-	
-	# bounds = [ 
-	# 	Line(0, Vertical), Line(10, Vertical), 
-	# 	Line(0, Horizontal), Line(10, Horizontal)
-	# ]
 
 	agents = 
 		[
 			Agent(Box(0.5, 0.5, (1, 1), RGB(1, 0, 1)), (0.02, 0.02)),
 			Agent(Box(2, 0.75, (7.5, 5), RGB(0, 1, 1)), (0.01, -0.2)),
 			Agent(Circle(1, (13, 2), RGB(0, 0, 1)), (-0.02, 0.02)),
+			Agent(Circle(0.5, (2, 2), RGB(0.3, 0, 0.5)), (-0.02, 0.02)),
 		]
 
 	initial_state = State(agents, bounds)
@@ -294,12 +370,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 Colors = "~0.12.8"
 Plots = "~1.31.7"
+PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.39"
 StaticArrays = "~1.5.6"
 """
@@ -308,9 +386,9 @@ StaticArrays = "~1.5.6"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.0"
+julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "1c6651675837c2b90902aa33cb5c4e3386857cf1"
+project_hash = "f99ba281ef8ef2629e4df029fea30f983a6811bc"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -879,6 +957,12 @@ git-tree-sha1 = "a19652399f43938413340b2068e11e55caa46b65"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 version = "1.31.7"
 
+[[deps.PlutoTest]]
+deps = ["HypertextLiteral", "InteractiveUtils", "Markdown", "Test"]
+git-tree-sha1 = "17aa9b81106e661cffa1c4c36c17ee1c50a86eda"
+uuid = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
+version = "0.2.2"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
 git-tree-sha1 = "8d1f54886b9037091edf146b517989fc4a09efec"
@@ -1305,8 +1389,46 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═63846b91-2787-47a6-93f9-16694f4da5fb
 # ╟─f8495ce8-f1cc-48c2-a7f1-024ac1eefbce
+# ╟─76470846-99d6-4744-b8ff-70c7ce10e94c
+# ╟─3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
+# ╟─f24375c7-6cf0-433b-885b-831be7f6f304
+# ╟─b4eb3c42-6e58-44e2-869b-b99ab001c1f9
+# ╟─665e1bb3-1ece-4c1e-8a18-15bf9685e47e
+# ╠═c35d726e-f180-4595-b46f-89ee700a9d1e
+# ╟─3903d25d-0f4f-4664-8555-2d9e548b0db5
+# ╟─9ecd206f-e80d-461c-b36a-0bdfb91a5e27
+# ╟─11678446-f82c-4cf5-99b4-f8f2ee7bcc84
+# ╟─7beab858-8058-4718-bce2-92b7df4afd7e
+# ╟─f2070a77-2132-4215-9471-975bc4a8143f
+# ╟─9486e2f9-98b9-4faa-86cd-efa30e5f808d
+# ╠═265dff92-ab27-453a-86c4-1deeacd05efe
+# ╟─669f7aa6-ca2d-4e3d-bea9-074a779f9089
+# ╟─89ad84af-eb80-452e-853e-07d2c92ae62e
+# ╟─01bb3555-d900-4d0c-8a27-8040cb9dc482
+# ╟─5447326f-ba12-4a36-a76f-90a08c8979df
+# ╟─f2398cc6-78c9-49d7-99c9-e492dae686c7
+# ╟─418141f1-6b02-4803-b6b9-5560bd6738a1
+# ╠═208c162d-dc66-47d3-9a4b-0508a2f95a31
+# ╟─c8ca4ebf-0b73-4ea1-8191-a473ce531bf8
+# ╠═ddd2c264-2405-49c0-815d-1ae206dfed55
+# ╟─4876d9ab-4694-458a-aae3-b8d6e969f109
+# ╟─83ddbdd4-7740-4af6-aa34-1b0f9b736a39
+# ╟─83ace1e4-6ae6-4553-8c4d-50b4a0c96ef8
+# ╟─013fd020-79f0-492b-9d7d-3bde15c046ad
+# ╠═45f4d8d4-e353-4c6f-89f7-81eb5e081b90
+# ╠═6baf545e-6fd5-4b69-89cc-fe6feaf37dbe
+# ╟─25248f91-f736-408a-8ac8-281ea0455b1e
+# ╠═c0f7340b-d7c8-4620-8ef3-5cea8ab65445
+# ╟─68327908-7dca-42be-a978-4ba49f6fcce7
+# ╟─68c6215d-c67f-4250-81c2-5e08f9059525
+# ╟─1aa698f5-52c3-4528-aab7-0bfeaa676495
+# ╠═fbe1992b-7e01-4713-a16a-5b94704fb0b1
+# ╟─4e6a1f7f-5676-44e6-8eb7-446f67aa26d6
+# ╟─d296c0dc-ee16-431a-80d4-c876d54deedb
 # ╠═3bae17b8-2654-11ed-363e-27a4e1e9060f
+# ╟─f27f9309-c9f4-4578-ab6a-00cf0af22a49
 # ╠═b4c7b7ac-71df-449a-8ac5-8e3e039e924a
 # ╠═42a46dd3-03f9-4d7e-b38c-70622f661c32
 # ╠═a961c8ad-fbca-4621-a6b5-0375f4bedeb5
@@ -1316,19 +1438,7 @@ version = "1.4.1+0"
 # ╠═547bf952-9832-47e5-9ab2-7a78ba496fc8
 # ╠═fdd5bb1f-5f99-4264-bdb4-cafb2aa45438
 # ╠═d0962c63-743b-4912-abd3-c8ef9ddf1646
-# ╠═c0f7340b-d7c8-4620-8ef3-5cea8ab65445
-# ╟─68327908-7dca-42be-a978-4ba49f6fcce7
-# ╠═68c6215d-c67f-4250-81c2-5e08f9059525
-# ╟─1aa698f5-52c3-4528-aab7-0bfeaa676495
-# ╠═fbe1992b-7e01-4713-a16a-5b94704fb0b1
-# ╠═c35d726e-f180-4595-b46f-89ee700a9d1e
-# ╠═3f634cce-3b5e-45c5-8d53-8c26a48fc2d1
-# ╠═f24375c7-6cf0-433b-885b-831be7f6f304
-# ╠═265dff92-ab27-453a-86c4-1deeacd05efe
-# ╠═208c162d-dc66-47d3-9a4b-0508a2f95a31
-# ╠═ddd2c264-2405-49c0-815d-1ae206dfed55
-# ╠═45f4d8d4-e353-4c6f-89f7-81eb5e081b90
-# ╠═6baf545e-6fd5-4b69-89cc-fe6feaf37dbe
+# ╟─85eb2603-94d2-4d6f-ac1b-8dbdfb11ff4c
 # ╠═c5b560e9-620b-4149-997e-a7543de557ef
 # ╠═2d717860-aec1-49ce-8883-48eaaf546118
 # ╠═9196ebc2-7c84-4d51-a66c-bb82a37ac685
@@ -1336,6 +1446,5 @@ version = "1.4.1+0"
 # ╠═43ec961a-c7c2-4694-bd48-8c80be5f8926
 # ╠═a3f4c59a-6723-4147-b113-f91d43d07d0c
 # ╠═0df5ffa4-34cf-4322-9079-91ad51b965d0
-# ╠═76470846-99d6-4744-b8ff-70c7ce10e94c
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
